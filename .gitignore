@@ -1,0 +1,30 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+env/
+ENV/
+.venv/
+
+# IDE specific files
+.idea/
+.vscode/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+
+# SQLite database files
+*.sqlite3
+*.db
+
+# Logs
+*.log
+
+# Byte-compiled files
+*.pyc
+*.pyo
