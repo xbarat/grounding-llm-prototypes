@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Dict
-from main import fetch_user_stats  # Existing logic from Streamlit MVP
+from backend.app.utils.fetch import fetch_user_stats
 
 router = APIRouter()
 

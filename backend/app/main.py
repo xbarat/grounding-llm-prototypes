@@ -1,5 +1,7 @@
+# app/main.py
+
 from fastapi import FastAPI
-from routes import user, data, analysis
+from app.routes import user, data, analysis
 
 app = FastAPI()
 
