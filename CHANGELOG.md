@@ -1,32 +1,13 @@
 # Changelog
 
-## 18.12
-
-### CONNECT USER
-
-- Connect to the backend API
-- Handle loading states
-- Display error messages
-- Show connection status
-- Fetch initial data after connection
-
-Unknown:
-- Fetch initial data and saving it where?
-- Connection Status is based on what?
-
-
-## CENTRALIZED CONFIG (`lib/config.ts`)
-
-- Centralized config for API endpoints
-- Centralized config for API types
-- Centralized config for API responses
-
+## 18.12.1 - **User Connects to TypeRacer (or other Platform via API)**
 
 From what I can see in the frontend:
 ✅ Connect user works perfectly
 ✅ User stats are displayed correctly
 ❌ Fetch data is failing
 
+## 18.12.2 - **User Database allows Fetch & Store Data from TypeRacer API**
 
 🎉 Excellent! We've successfully implemented the user connection flow with data fetching and storage. Let's recap what we've achieved:
 
@@ -39,3 +20,13 @@ From what I can see in the frontend:
 The UI looks clean and professional, and the backend is handling the data reliably. This is a solid foundation for the rest of the application.
 
 
+## 18.12.3 - **UI Styling**
+
+🎉 Excellent! We've successfully fixed the UI styling by:
+
+1. ✅ Properly importing the global CSS
+2. ✅ Setting up the dark theme correctly
+3. ✅ Maintaining the Geist font configuration
+4. ✅ Keeping the shadcn/ui components intact
+
+The UI now matches the clean, professional design from the original template. The dark theme looks particularly sleek, and all the components are properly styled.
