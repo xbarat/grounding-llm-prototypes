@@ -1,120 +1,104 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Dict, Optional, List
-from app.utils.fetch import load_data_from_db
-from app.utils.plotting import get_player_stats
+from typing import Dict, Optional
+from sqlalchemy.orm import Session
+from app.database.config import get_db
+from app.database.operations import load_typing_stats
 from app.utils.code_utils import (
     generate_code,
+    extract_code_block,
     execute_code_safely,
-    QueryGuidance
+    regenerate_code_with_error
 )
+import pandas as pd
+import io
+import base64
 
 router = APIRouter()
 
-class CodeRequest(BaseModel):
-    question: str
+class GenerateCodeRequest(BaseModel):
+    query: str
 
-class ExecuteRequest(BaseModel):
+class ExecuteCodeRequest(BaseModel):
     code: str
 
-@router.post("/generate_code", tags=["Analysis"])
-def generate_code_endpoint(request: CodeRequest) -> Dict:
-    try:
-        df = load_data_from_db()
-        if df is None:
-            raise HTTPException(status_code=404, detail="No data found in database")
-        
-        code = generate_code(df, request.question)
-        return {"status": "success", "code": code}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def convert_figure_to_base64(figure) -> Optional[str]:
+    """Convert matplotlib figure to base64 string"""
+    if figure is None:
+        return None
+    buf = io.BytesIO()
+    figure.savefig(buf, format='png', bbox_inches='tight')
+    buf.seek(0)
+    return base64.b64encode(buf.getvalue()).decode('utf-8')
 
-@router.post("/execute_code", tags=["Analysis"])
-def execute_code_endpoint(request: ExecuteRequest) -> Dict:
+@router.post("/generate_code", tags=["Analysis"])
+def generate_analysis_code(
+    request: GenerateCodeRequest,
+    db: Session = Depends(get_db)
+) -> Dict:
+    """Generate Python code for the analysis query"""
     try:
-        df = load_data_from_db()
-        if df is None:
+        # Load data from database
+        data = load_typing_stats(db)
+        if not data:
             raise HTTPException(status_code=404, detail="No data found in database")
         
-        success, result, modified_code = execute_code_safely(request.code, df)
-        if not success:
-            raise HTTPException(status_code=400, detail=result)
+        df = pd.DataFrame(data)
+        
+        # Generate code using Claude
+        response = generate_code(df, request.query)
+        code = extract_code_block(response)
+        
+        if not code:
+            raise HTTPException(status_code=500, detail="Failed to generate valid code")
         
         return {
             "status": "success",
-            "result": result,
-            "modified_code": modified_code
+            "data": {
+                "code": code
+            }
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/player_dashboard/{player_id}", tags=["Analysis"])
-def player_dashboard(player_id: str) -> Dict:
-    try:
-        stats = get_player_stats(player_id)
-        if not stats:
-            raise HTTPException(status_code=404, detail="Player stats not found")
-        return {"status": "success", "data": stats}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/query_guidance", tags=["Analysis"])
-def query_guidance(
-    level: Optional[str] = Query(None, description="Filter questions by level"),
-    category: Optional[str] = Query(None, description="Filter questions by category"),
-    query: Optional[str] = Query(None, description="Search query to find relevant questions"),
-    max_suggestions: Optional[int] = Query(5, description="Maximum number of suggestions to return")
+@router.post("/execute_code", tags=["Analysis"])
+def execute_analysis_code(
+    request: ExecuteCodeRequest,
+    db: Session = Depends(get_db)
 ) -> Dict:
-    """Get suggested questions for analysis, optionally filtered by level, category, and search query"""
+    """Execute the generated Python code"""
     try:
-        guidance = QueryGuidance()
+        # Load data from database
+        data = load_typing_stats(db)
+        if not data:
+            raise HTTPException(status_code=404, detail="No data found in database")
         
-        # Get available levels and categories
-        levels = guidance.get_levels()
-        categories = guidance.get_categories()
+        df = pd.DataFrame(data)
         
-        # Validate level if provided
-        if level and level not in levels:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Invalid level. Available levels: {', '.join(levels)}"
-            )
+        # Execute code
+        success, result, code = execute_code_safely(request.code, df)
         
-        # Validate category if provided
-        if category and category not in categories:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Invalid category. Available categories: {', '.join(categories)}"
-            )
+        if not success:
+            # Try to regenerate and execute code with error context
+            new_code = regenerate_code_with_error(df, "", str(result), code)
+            new_code = extract_code_block(new_code)
+            if new_code:
+                success, result, _ = execute_code_safely(new_code, df)
         
-        # Validate max_suggestions
-        if max_suggestions < 1:
-            raise HTTPException(
-                status_code=400,
-                detail="max_suggestions must be greater than 0"
-            )
+        if not success:
+            raise HTTPException(status_code=500, detail=str(result))
         
-        # Get filtered and scored questions
-        questions = guidance.filter_questions(
-            level=level,
-            category=category,
-            query=query,
-            max_suggestions=max_suggestions
-        )
+        # Convert figure to base64 if present
+        figure_data = None
+        if isinstance(result, dict) and result.get('figure'):
+            figure_data = convert_figure_to_base64(result['figure'])
         
         return {
             "status": "success",
-            "metadata": {
-                "available_levels": levels,
-                "available_categories": categories,
-                "filters_applied": {
-                    "level": level,
-                    "category": category,
-                    "query": query,
-                    "max_suggestions": max_suggestions
-                }
-            },
-            "questions": questions
+            "data": {
+                "result": result.get('result') if isinstance(result, dict) else result,
+                "figure": figure_data
+            }
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
