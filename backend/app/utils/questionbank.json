@@ -1,0 +1,302 @@
+[
+    {
+        "level": "Basic",
+        "category": "Dataset Understanding",
+        "questions": [
+            {
+                "id": 1,
+                "question": "What are the key columns in this dataset, and what does each column represent?"
+            },
+            {
+                "id": 2,
+                "question": "How many rows and columns are in this dataset?"
+            },
+            {
+                "id": 3,
+                "question": "Show me a preview of the first 5 rows of the dataset."
+            },
+            {
+                "id": 4,
+                "question": "What types of data are in each column?"
+            }
+        ]
+    },
+    {
+        "level": "Basic",
+        "category": "Summary Statistics",
+        "questions": [
+            {
+                "id": 5,
+                "question": "What is the average, minimum, and maximum typing speed (WPM) in this dataset?"
+            },
+            {
+                "id": 6,
+                "question": "How many unique values are in the column ‘Accuracy (%)’?"
+            },
+            {
+                "id": 7,
+                "question": "What percentage of entries have an accuracy of over 90%?"
+            }
+        ]
+    },
+    {
+        "level": "Basic",
+        "category": "Missing/Invalid Data",
+        "questions": [
+            {
+                "id": 8,
+                "question": "Are there any missing values in the dataset? If so, which columns are affected?"
+            },
+            {
+                "id": 9,
+                "question": "How many invalid entries are in the ‘Speed (WPM)’ column?"
+            }
+        ]
+    },
+    {
+        "level": "Intermediate",
+        "category": "Performance Trends",
+        "questions": [
+            {
+                "id": 10,
+                "question": "Show me a trend of typing speed over time."
+            },
+            {
+                "id": 11,
+                "question": "Is there a relationship between accuracy and speed in this dataset?"
+            },
+            {
+                "id": 12,
+                "question": "What is the distribution of typing speeds?"
+            }
+        ]
+    },
+    {
+        "level": "Intermediate",
+        "category": "Segment Analysis",
+        "questions": [
+            {
+                "id": 13,
+                "question": "How does typing speed vary by day of the week?"
+            },
+            {
+                "id": 14,
+                "question": "Group the entries by accuracy range (e.g., 80-90%, 90-100%) and calculate the average typing speed for each group."
+            },
+            {
+                "id": 15,
+                "question": "What are the top 3 fastest sessions in this dataset, and when did they occur?"
+            }
+        ]
+    },
+    {
+        "level": "Intermediate",
+        "category": "Outlier Detection",
+        "questions": [
+            {
+                "id": 16,
+                "question": "Are there any outliers in typing speed? Highlight the top 5 sessions with the largest deviations from the average."
+            },
+            {
+                "id": 17,
+                "question": "Which entries have a typing speed below 50 WPM and accuracy above 90%?"
+            }
+        ]
+    },
+    {
+        "level": "Advanced",
+        "category": "Fatigue and Consistency",
+        "questions": [
+            {
+                "id": 18,
+                "question": "Does typing speed tend to drop as session length increases? Show this relationship."
+            },
+            {
+                "id": 19,
+                "question": "Which sessions show signs of fatigue based on significant drops in typing speed or accuracy?"
+            }
+        ]
+    },
+    {
+        "level": "Advanced",
+        "category": "Comparative Analysis",
+        "questions": [
+            {
+                "id": 20,
+                "question": "Compare the average typing speed for sessions in the morning versus the evening."
+            },
+            {
+                "id": 21,
+                "question": "How does performance on weekends compare to weekdays?"
+            }
+        ]
+    },
+    {
+        "level": "Advanced",
+        "category": "Predictive Insights",
+        "questions": [
+            {
+                "id": 22,
+                "question": "Based on this dataset, predict the average typing speed for the next session."
+            },
+            {
+                "id": 23,
+                "question": "If current trends continue, what will the user’s average typing speed be in 30 days?"
+            }
+        ]
+    },
+    {
+        "level": "Advanced",
+        "category": "Clustering and Segmentation",
+        "questions": [
+            {
+                "id": 24,
+                "question": "Group the dataset into clusters based on typing speed and accuracy. Describe the characteristics of each cluster."
+            },
+            {
+                "id": 25,
+                "question": "Are there distinct performance categories (e.g., beginner, intermediate, advanced) in this dataset? If so, how many, and what are their characteristics?"
+            }
+        ]
+    },
+    {
+        "level": "Expert",
+        "category": "Insights",
+        "questions": [
+            {
+                "id": 26,
+                "question": "What are the key factors affecting typing performance in this dataset?"
+            },
+            {
+                "id": 27,
+                "question": "Which typing sessions show the highest levels of consistency in speed and accuracy?"
+            },
+            {
+                "id": 28,
+                "question": "What are the most common error patterns in accuracy?"
+            }
+        ]
+    },
+    {
+        "level": "Expert",
+        "category": "Recommendations",
+        "questions": [
+            {
+                "id": 29,
+                "question": "What can the user do to improve their typing speed?"
+            },
+            {
+                "id": 30,
+                "question": "Based on the analysis, provide 3 actionable insights to help the user improve their performance."
+            },
+            {
+                "id": 31,
+                "question": "What day and time is the user most likely to perform their best typing session?"
+            }
+        ]
+    },
+    {
+        "level": "Expert",
+        "category": "Hypothesis Testing",
+        "questions": [
+            {
+                "id": 32,
+                "question": "Test if there is a statistically significant difference between weekday and weekend typing speeds."
+            },
+            {
+                "id": 33,
+                "question": "Is there a correlation between typing speed and session length? If so, how strong is it?"
+            }
+        ]
+    },
+    {
+        "level": "Users",
+        "category": "Personal Performance Analysis",
+        "questions": [
+            {
+                "id": 101,
+                "question": "Identify average WPM and accuracy from the dataset."
+            },
+            {
+                "id": 102,
+                "question": "Calculate the speed and accuracy averages using the rolling average of n=10."
+            },
+            {
+                "id": 103,
+                "question": "Based on the rolling average of n=50 for speed, show me the line graph."
+            },
+            {
+                "id": 104,
+                "question": "Based on the rolling average of n=50 for speed, show me the line graph. Also impose the accuracy on top of the line graph to see how accuracy correlates with speed over time."
+            },
+            {
+                "id": 105,
+                "question": "Normalize both the speed and accuracy between 0 to 1 and plot them together on a single graph."
+            }
+        ]
+    },
+    {
+        "level": "Users",
+        "category": "Trend Analysis",
+        "questions": [
+            {
+                "id": 106,
+                "question": "Based on my typing data, what's my speed trend over time? Am I improving or slowing down?"
+            },
+            {
+                "id": 107,
+                "question": "Analyze trends over time by splitting the dataset into chunks of 100 rows each, and provide an assessment and graph based on calculating slope of 'Speed (WPM)' over 'Date' for each chunk and comparing slopes between chunks to highlight improvement or decline."
+            },
+            {
+                "id": 108,
+                "question": "What does the analysis of trends suggest about my performance?"
+            }
+        ]
+    },
+    {
+        "level": "Users",
+        "category": "Performance Patterns",
+        "questions": [
+            {
+                "id": 109,
+                "question": "Identify my best and worst typing sessions and when they occurred."
+            },
+            {
+                "id": 110,
+                "question": "When do I perform best? Time of day or day of the week?"
+            },
+            {
+                "id": 111,
+                "question": "Compare my performance this week to the past month. How am I doing?"
+            },
+            {
+                "id": 112,
+                "question": "Do I slow down as I do more typing sessions in a row? Is there a pattern?"
+            }
+        ]
+    },
+    {
+        "level": "Users",
+        "category": "Fatigue Analysis",
+        "questions": [
+            {
+                "id": 113,
+                "question": "Detect fatigue by identifying sessions where speed drops by more than 20%, sessions with accuracy below 80%, and sessions with significantly abnormal session lengths."
+            },
+            {
+                "id": 114,
+                "question": "What is the analysis on these fatigues? When does it occur? Could it occur due to reducing accuracy or after reaching top speed? Which is the more plausible theory?"
+            }
+        ]
+    },
+    {
+        "level": "Users",
+        "category": "Skill Classification",
+        "questions": [
+            {
+                "id": 115,
+                "question": "Break down my typing sessions into performance clusters. Am I in the beginner, intermediate, or advanced speed category?"
+            }
+        ]
+    }
+]

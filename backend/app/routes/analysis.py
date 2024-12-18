@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from app.utils.fetch import load_data_from_db
 from app.utils.plotting import get_player_stats
 from app.utils.code_utils import (
@@ -59,10 +59,62 @@ def player_dashboard(player_id: str) -> Dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/query_guidance", tags=["Analysis"])
-def query_guidance() -> Dict:
+def query_guidance(
+    level: Optional[str] = Query(None, description="Filter questions by level"),
+    category: Optional[str] = Query(None, description="Filter questions by category"),
+    query: Optional[str] = Query(None, description="Search query to find relevant questions"),
+    max_suggestions: Optional[int] = Query(5, description="Maximum number of suggestions to return")
+) -> Dict:
+    """Get suggested questions for analysis, optionally filtered by level, category, and search query"""
     try:
         guidance = QueryGuidance()
-        suggestions = guidance.filter_questions()
-        return {"status": "success", "suggestions": suggestions}
+        
+        # Get available levels and categories
+        levels = guidance.get_levels()
+        categories = guidance.get_categories()
+        
+        # Validate level if provided
+        if level and level not in levels:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid level. Available levels: {', '.join(levels)}"
+            )
+        
+        # Validate category if provided
+        if category and category not in categories:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid category. Available categories: {', '.join(categories)}"
+            )
+        
+        # Validate max_suggestions
+        if max_suggestions < 1:
+            raise HTTPException(
+                status_code=400,
+                detail="max_suggestions must be greater than 0"
+            )
+        
+        # Get filtered and scored questions
+        questions = guidance.filter_questions(
+            level=level,
+            category=category,
+            query=query,
+            max_suggestions=max_suggestions
+        )
+        
+        return {
+            "status": "success",
+            "metadata": {
+                "available_levels": levels,
+                "available_categories": categories,
+                "filters_applied": {
+                    "level": level,
+                    "category": category,
+                    "query": query,
+                    "max_suggestions": max_suggestions
+                }
+            },
+            "questions": questions
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

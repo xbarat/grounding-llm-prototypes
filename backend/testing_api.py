@@ -95,11 +95,31 @@ result = df['speed'].mean()
         return response.json()
 
     def test_query_guidance(self) -> Dict[str, Any]:
-        """Test /query_guidance endpoint"""
+        """Test /query_guidance endpoint with various filters"""
         endpoint = "/query_guidance"
+        results = []
+
+        # Test 1: Get all questions (no filters)
         response = requests.get(f"{self.base_url}{endpoint}")
-        self._print_response(endpoint, response.json())
-        return response.json()
+        self._print_response(f"{endpoint} - All Questions", response.json())
+        results.append(response.json())
+
+        # Test 2: Filter by level
+        response = requests.get(f"{self.base_url}{endpoint}?level=Basic")
+        self._print_response(f"{endpoint} - Basic Level", response.json())
+        results.append(response.json())
+
+        # Test 3: Filter by category
+        response = requests.get(f"{self.base_url}{endpoint}?category=Performance%20Trends")
+        self._print_response(f"{endpoint} - Performance Trends", response.json())
+        results.append(response.json())
+
+        # Test 4: Filter by both level and category
+        response = requests.get(f"{self.base_url}{endpoint}?level=Basic&category=Summary%20Statistics")
+        self._print_response(f"{endpoint} - Basic Summary Statistics", response.json())
+        results.append(response.json())
+
+        return results
 
     def run_all_tests(self) -> None:
         """Run all API tests in sequence"""
