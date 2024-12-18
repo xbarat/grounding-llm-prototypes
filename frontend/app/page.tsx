@@ -6,11 +6,20 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { QueryResults } from '@/components/query-results'
+import { ENDPOINTS } from '@/lib/config'
+
+// Example queries that worked well in our testing
+const EXAMPLE_QUERIES = [
+  "Show my average WPM for the last 10 races",
+  "Plot my WPM trend over time",
+  "Calculate my accuracy trend",
+  "Show my performance by time of day"
+]
 
 export default function Page() {
   const [query, setQuery] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [results, setResults] = useState<string | null>(null)
+  const [results, setResults] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,13 +28,41 @@ export default function Page() {
 
     setIsLoading(true)
     setError(null)
+    setResults(null)
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      setResults('Sample response with code and chart visualization')
+      // First, generate code
+      const generateResponse = await fetch(ENDPOINTS.GENERATE_CODE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      })
+
+      const generateData = await generateResponse.json()
+      if (generateData.status !== 'success') {
+        throw new Error(generateData.detail || 'Failed to generate code')
+      }
+
+      // Then execute the generated code
+      const executeResponse = await fetch(ENDPOINTS.EXECUTE_CODE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: generateData.data.code })
+      })
+
+      const executeData = await executeResponse.json()
+      if (executeData.status !== 'success') {
+        throw new Error(executeData.detail || 'Failed to execute code')
+      }
+
+      setResults({
+        result: executeData.data.result,
+        figure: executeData.data.figure,
+        code: generateData.data.code
+      })
     } catch (err) {
-      setError('Failed to get results. Please try again.')
+      console.error('Analysis error:', err)
+      setError(err instanceof Error ? err.message : 'Failed to analyze data')
     } finally {
       setIsLoading(false)
     }
@@ -76,34 +113,16 @@ export default function Page() {
 
         <div className="w-full max-w-[600px] bg-transparent border border-white/10 rounded-xl p-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start gap-2 text-white/60 hover:text-white"
-            >
-              {/* <Shirt className="h-4 w-4" /> */}
-              Latest women's fashion trends summer 2024
-            </Button>
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start gap-2 text-white/60 hover:text-white"
-            >
-              {/* <BarChart3 className="h-4 w-4" /> */}
-              Analyze the global economy in 2024
-            </Button>
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start gap-2 text-white/60 hover:text-white"
-            >
-              {/* <Plane className="h-4 w-4" /> */}
-              Refund on delayed flight
-            </Button>
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start gap-2 text-white/60 hover:text-white"
-            >
-              {/* <Smartphone className="h-4 w-4" /> */}
-              When will the next iPhone be released?
-            </Button>
+            {EXAMPLE_QUERIES.map((example, index) => (
+              <Button 
+                key={index}
+                variant="ghost" 
+                className="w-full justify-start gap-2 text-white/60 hover:text-white"
+                onClick={() => setQuery(example)}
+              >
+                {example}
+              </Button>
+            ))}
           </div>
         </div>
       </div>
