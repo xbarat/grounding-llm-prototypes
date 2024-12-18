@@ -1,21 +1,22 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Dict, Optional
-from app.utils.fetch import load_data_from_db
+from sqlalchemy.orm import Session
+from app.database.config import get_db
+from app.database.operations import load_typing_stats
 import pandas as pd
 
 router = APIRouter()
 
 @router.get("/load_data", tags=["Data"])
-def load_data_endpoint() -> Dict:
+def load_data_endpoint(db: Session = Depends(get_db)) -> Dict:
     try:
-        df = load_data_from_db()
-        if df is None:
+        data = load_typing_stats(db)
+        if not data:
             raise HTTPException(status_code=404, detail="No data found in database")
         return {
             "status": "success",
-            "columns": df.columns.tolist(),
-            "data": df.to_dict(orient='records')
+            "data": data
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
