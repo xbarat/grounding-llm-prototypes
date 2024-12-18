@@ -1,6 +1,13 @@
 from typing import Optional, Dict, List, Any
 import requests
 import json
+import pandas as pd
+import os
+from sqlalchemy import create_engine
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 def fetch_user_stats(username: str) -> Optional[Dict]:
     """Fetch user statistics from TypeRacer API."""
@@ -42,5 +49,27 @@ def fetch_data(player_id: str, universe: str, n: int, before_id: str = None) -> 
         print(f"Invalid JSON response from API")
         return None
 
-def load_data_from_db():
-    pass 
+def load_data_from_db() -> Optional[pd.DataFrame]:
+    """Load data from PostgreSQL database"""
+    try:
+        # Get database URL from environment variable
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            print("Error: DATABASE_URL not found in environment variables")
+            return None
+
+        # Create SQLAlchemy engine
+        engine = create_engine(database_url)
+        
+        # Load data into DataFrame
+        query = "SELECT * FROM typing_stats"
+        df = pd.read_sql_query(query, engine)
+        
+        if df.empty:
+            print("No data found in database")
+            return None
+            
+        return df
+    except Exception as e:
+        print(f"Error loading database: {str(e)}")
+        return None 
