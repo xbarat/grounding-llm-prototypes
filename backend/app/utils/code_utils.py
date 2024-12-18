@@ -1,5 +1,7 @@
 from typing import Dict, List, Tuple, Optional, Any
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')  # Set non-interactive backend before importing pyplot
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
