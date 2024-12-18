@@ -1,20 +1,21 @@
-import seaborn as sns
+import matplotlib
+matplotlib.use('Agg')  # Set non-interactive backend before importing pyplot
 import matplotlib.pyplot as plt
+import seaborn as sns
 from typing import Dict, Optional
 
-def setup_plotting_style(style: str = 'whitegrid') -> None:
-    """Set up consistent plotting style for all visualizations"""
-    try:
-        valid_styles = ['darkgrid', 'whitegrid', 'dark', 'white', 'ticks']
-        if style not in valid_styles:
-            style = 'whitegrid'
-            
-        sns.set_theme(style=style)
-        plt.style.use('default')
-        plt.rcParams['figure.figsize'] = [10, 6]
-        plt.rcParams['figure.dpi'] = 100
-    except Exception as e:
-        print(f"Warning: Could not set plot style. Using defaults. ({str(e)})")
+def setup_plotting_style():
+    """Setup consistent plotting style"""
+    plt.style.use('dark_background')
+    sns.set_theme(style='darkgrid')
+    plt.rcParams['figure.figsize'] = [12, 6]
+    plt.rcParams['figure.dpi'] = 100
+    plt.rcParams['savefig.dpi'] = 100
+    plt.rcParams['font.size'] = 12
+    plt.rcParams['axes.titlesize'] = 14
+    plt.rcParams['axes.labelsize'] = 12
+    plt.rcParams['xtick.labelsize'] = 10
+    plt.rcParams['ytick.labelsize'] = 10
 
 def get_player_stats(player_id: str) -> Optional[Dict]:
     """Get player statistics for dashboard"""
