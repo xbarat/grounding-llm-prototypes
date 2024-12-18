@@ -1,23 +1,21 @@
 from fastapi import APIRouter, HTTPException
-from typing import Dict, List
-from backend.app.utils.fetch import fetch_data, load_data_from_db
+from pydantic import BaseModel
+from typing import Dict, Optional
+from app.utils.fetch import load_data_from_db
+import pandas as pd
 
 router = APIRouter()
 
-@router.post("/fetch_data", tags=["Data"])
-def fetch_data_endpoint(player_id: str, universe: str, n: int):
-    try:
-        data = fetch_data(player_id, universe, n)
-        if not data:
-            raise HTTPException(status_code=404, detail="No data found")
-        return {"status": "success", "data": data}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @router.get("/load_data", tags=["Data"])
-def load_data_endpoint():
+def load_data_endpoint() -> Dict:
     try:
         df = load_data_from_db()
-        return {"status": "success", "columns": df.columns.tolist(), "data": df.head().to_dict()}
+        if df is None:
+            raise HTTPException(status_code=404, detail="No data found in database")
+        return {
+            "status": "success",
+            "columns": df.columns.tolist(),
+            "data": df.to_dict(orient='records')
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
