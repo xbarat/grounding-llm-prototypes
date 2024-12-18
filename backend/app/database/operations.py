@@ -1,38 +1,52 @@
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 from app.models.typing_stats import TypingStats
+from sqlalchemy.dialects.postgresql import insert
 
-def save_typing_stats(db: Session, data: List[Dict[str, Any]], player_id: str) -> None:
-    """Save typing statistics to PostgreSQL database"""
+def save_typing_stats(db: Session, data: List[Dict], player_id: str) -> None:
+    """Save typing stats to database using UPSERT to handle duplicates."""
+    # Convert the data into a list of dictionaries for bulk upsert
+    records = []
+    for i, game in enumerate(data, start=1):
+        record = {
+            'player_id': player_id,
+            'entry_number': i,
+            'speed': game.get('wpm', 0),
+            'accuracy': game.get('accuracy', 0),
+            'pts': game.get('pts', 0),
+            'time': game.get('t', 0),
+            'rank': game.get('rank', 0),
+            'game_entry': game.get('gn', 0),
+            'text_id': game.get('tid', 0),
+            'skill_level': game.get('sl', ''),
+            'num_players': game.get('np', 0)
+        }
+        records.append(record)
+
+    # Create the upsert statement
+    stmt = insert(TypingStats).values(records)
+    stmt = stmt.on_conflict_do_update(
+        constraint='uix_player_entry',
+        set_={
+            'speed': stmt.excluded.speed,
+            'accuracy': stmt.excluded.accuracy,
+            'pts': stmt.excluded.pts,
+            'time': stmt.excluded.time,
+            'rank': stmt.excluded.rank,
+            'game_entry': stmt.excluded.game_entry,
+            'text_id': stmt.excluded.text_id,
+            'skill_level': stmt.excluded.skill_level,
+            'num_players': stmt.excluded.num_players
+        }
+    )
+    
     try:
-        # Sort data by game number
-        sorted_data = sorted(data, key=lambda x: x['gn'])
-        
-        # Prepare records for bulk insert
-        records = []
-        for i, entry in enumerate(sorted_data, start=1):
-            record = TypingStats(
-                player_id=player_id,
-                entry_number=i,
-                speed=entry['wpm'],
-                accuracy=entry['ac'],
-                pts=entry.get('pts'),
-                time=entry['t'],
-                rank=entry.get('r'),
-                game_entry=entry['gn'],
-                text_id=entry.get('tid'),
-                skill_level=entry.get('sl'),
-                num_players=entry.get('np')
-            )
-            records.append(record)
-        
-        # Bulk insert records
-        db.bulk_save_objects(records)
+        db.execute(stmt)
         db.commit()
-        
     except Exception as e:
+        print(f"Error saving typing stats: {str(e)}")
         db.rollback()
-        raise e
+        raise
 
 def load_typing_stats(db: Session, player_id: str = None) -> List[Dict[str, Any]]:
     """Load typing statistics from database"""

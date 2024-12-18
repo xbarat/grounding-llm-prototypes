@@ -26,18 +26,26 @@ def fetch_user_stats(username: str) -> Optional[Dict]:
 
 def fetch_data(player_id: str, universe: str, n: int, before_id: str = None) -> Optional[List[Dict[str, Any]]]:
     """Fetch data from TypeRacer API with improved error handling"""
-    url = f'https://data.typeracer.com/games'
+    url = 'https://data.typeracer.com/games'
     params = {
         'playerId': player_id,
         'universe': universe,
-        'n': n,
-        'beforeId': before_id
+        'n': str(n)
     }
+    if before_id:
+        params['beforeGameId'] = before_id
 
     try:
+        print(f"Fetching data from TypeRacer API: {url} with params: {params}")
         response = requests.get(url, params=params, timeout=10)
+        print(f"Response status: {response.status_code}")
+        print(f"Response text: {response.text}")
         response.raise_for_status()
+        
         data = response.json()
+        if not isinstance(data, list):
+            print(f"Unexpected response format: {data}")
+            return None
         if not data:
             print("No data returned from API")
             return None
@@ -45,8 +53,8 @@ def fetch_data(player_id: str, universe: str, n: int, before_id: str = None) -> 
     except requests.RequestException as e:
         print(f"API request failed: {str(e)}")
         return None
-    except json.JSONDecodeError:
-        print(f"Invalid JSON response from API")
+    except json.JSONDecodeError as e:
+        print(f"Invalid JSON response from API: {str(e)}")
         return None
 
 def load_data_from_db() -> Optional[pd.DataFrame]:

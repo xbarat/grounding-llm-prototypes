@@ -1,6 +1,7 @@
 # app/main.py
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.routes import user, data, analysis
 from app.database.config import Base, engine
 
@@ -11,6 +12,15 @@ app = FastAPI(
     title="TypeRacer Analytics API",
     description="API for analyzing TypeRacer performance data",
     version="1.0.0"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include routes
