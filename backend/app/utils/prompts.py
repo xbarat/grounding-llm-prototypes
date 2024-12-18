@@ -1,3 +1,8 @@
+# prompts.py
+
+## test question:
+question = "Plot the average speed in a smoothed line graph"
+
 def custom_prompt(df, question: str) -> str:
     prompt = f"""
     You are writing code that will be executed with an existing DataFrame named 'df' that contains TypeRacer performance data.
