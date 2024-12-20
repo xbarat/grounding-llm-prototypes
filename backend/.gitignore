@@ -31,3 +31,15 @@ ENV/
 # Byte-compiled files
 *.pyc
 *.pyo
+
+# Installer files
+*.sh
+*.exe
+*.msi
+*.pkg
+*.dmg
+
+# Distribution files
+dist/
+build/
+*.egg-info/
