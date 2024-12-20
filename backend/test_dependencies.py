@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import scipy.stats as stats
 from scipy import optimize, interpolate
+import statsmodels.api as sm
 import json
 from datetime import datetime, timedelta
 
@@ -72,9 +73,173 @@ result = {
     
     return True
 
+def test_common_plotting_scenario():
+    """Test the most common plotting scenario that works reliably"""
+    print("\nTesting common plotting scenario...")
+    
+    # Create sample typing data
+    data = {
+        'wpm': [87.04, 85.97, 90.23, 82.45, 88.67],
+        'accuracy': [0.97, 0.96, 0.95, 0.94, 0.97]
+    }
+    df = pd.DataFrame(data)
+    
+    try:
+        # Create plot
+        plt.figure(figsize=(10, 6))
+        
+        # Scatter plot
+        sns.scatterplot(data=df, x='wpm', y='accuracy')
+        
+        # Add trend line
+        x = df['wpm']
+        y = df['accuracy']
+        z = np.polyfit(x, y, 1)
+        p = np.poly1d(z)
+        plt.plot(x, p(x), "r--", alpha=0.8)
+        
+        plt.title('Speed vs Accuracy with Trend Line')
+        plt.xlabel('Words per Minute (WPM)')
+        plt.ylabel('Accuracy')
+        
+        plt.close()
+        print("Common plotting scenario successful!")
+        return True
+    except Exception as e:
+        print("Common plotting scenario failed:", str(e))
+        return False
+
+def test_statistical_analysis_scenario():
+    """Test a scenario that requires scipy for statistical analysis"""
+    print("\nTesting statistical analysis scenario...")
+    
+    # Create sample typing data
+    data = {
+        'wpm': [87.04, 85.97, 90.23, 82.45, 88.67, 91.23, 86.45, 89.78, 84.56, 92.34],
+        'accuracy': [0.97, 0.96, 0.95, 0.94, 0.97, 0.96, 0.98, 0.95, 0.93, 0.96]
+    }
+    df = pd.DataFrame(data)
+    
+    try:
+        # Statistical Analysis
+        correlation, p_value = stats.pearsonr(df['wpm'], df['accuracy'])
+        print(f"Correlation coefficient: {correlation:.4f}, p-value: {p_value:.4f}")
+        
+        # Linear regression with confidence intervals
+        slope, intercept, r_value, p_value, std_err = stats.linregress(df['wpm'], df['accuracy'])
+        
+        # Create confidence interval lines
+        x = df['wpm']
+        y = df['accuracy']
+        n = len(df)
+        mean_x = np.mean(x)
+        
+        # Calculate confidence intervals
+        conf_interval = 0.95
+        degrees_of_freedom = n - 2
+        t_value = stats.t.ppf((1 + conf_interval) / 2, degrees_of_freedom)
+        
+        # Plotting
+        plt.figure(figsize=(10, 6))
+        
+        # Scatter plot
+        sns.scatterplot(data=df, x='wpm', y='accuracy')
+        
+        # Regression line
+        y_pred = slope * x + intercept
+        plt.plot(x, y_pred, 'r-', label=f'Regression line (R² = {r_value**2:.4f})')
+        
+        # Confidence intervals
+        x_new = np.linspace(x.min(), x.max(), 100)
+        y_new = slope * x_new + intercept
+        
+        # Standard error of regression
+        std_error = np.sqrt(np.sum((y - y_pred)**2) / degrees_of_freedom)
+        
+        # Confidence interval
+        ci = t_value * std_error * np.sqrt(1/n + (x_new - mean_x)**2 / np.sum((x - mean_x)**2))
+        plt.fill_between(x_new, y_new - ci, y_new + ci, color='red', alpha=0.1, label='95% Confidence Interval')
+        
+        plt.title('Speed vs Accuracy with Regression Line and Confidence Intervals')
+        plt.xlabel('Words per Minute (WPM)')
+        plt.ylabel('Accuracy')
+        plt.legend()
+        
+        plt.close()
+        print("Statistical analysis scenario successful!")
+        return True
+    except Exception as e:
+        print("Statistical analysis scenario failed:", str(e))
+        return False
+
+def test_statsmodels_analysis():
+    """Test statsmodels functionality for advanced statistical analysis"""
+    print("\nTesting statsmodels analysis...")
+    
+    # Create sample typing data
+    data = {
+        'wpm': [87.04, 85.97, 90.23, 82.45, 88.67, 91.23, 86.45, 89.78, 84.56, 92.34],
+        'accuracy': [0.97, 0.96, 0.95, 0.94, 0.97, 0.96, 0.98, 0.95, 0.93, 0.96]
+    }
+    df = pd.DataFrame(data)
+    
+    try:
+        # Prepare data for statsmodels
+        X = sm.add_constant(df['wpm'])
+        model = sm.OLS(df['accuracy'], X)
+        results = model.fit()
+        
+        # Get confidence intervals
+        predictions = results.get_prediction(X)
+        ci = predictions.conf_int()
+        
+        # Plotting
+        plt.figure(figsize=(10, 6))
+        
+        # Scatter plot
+        plt.scatter(df['wpm'], df['accuracy'], color='blue', alpha=0.5)
+        
+        # Regression line
+        plt.plot(df['wpm'], results.fittedvalues, 'r-', label=f'Regression line (R² = {results.rsquared:.4f})')
+        
+        # Confidence intervals
+        plt.fill_between(df['wpm'], ci[:, 0], ci[:, 1], color='red', alpha=0.1, label='95% Confidence Interval')
+        
+        plt.title('Speed vs Accuracy with Regression Line and Confidence Intervals (statsmodels)')
+        plt.xlabel('Words per Minute (WPM)')
+        plt.ylabel('Accuracy')
+        plt.legend()
+        
+        plt.close()
+        
+        # Print statistical summary
+        print("\nRegression Statistics:")
+        print(f"R-squared: {results.rsquared:.4f}")
+        print(f"P-value: {results.f_pvalue:.4f}")
+        print("Statistical analysis with statsmodels successful!")
+        return True
+    except Exception as e:
+        print("Statsmodels analysis failed:", str(e))
+        return False
+
 def test_all_dependencies():
+    # Test statsmodels functionality first
+    print("Testing statsmodels functionality...")
+    if not test_statsmodels_analysis():
+        print("Warning: Statsmodels analysis failed!")
+    
+    # Test the statistical analysis scenario first
+    print("Testing statistical analysis scenario...")
+    if not test_statistical_analysis_scenario():
+        print("Warning: Statistical analysis scenario failed!")
+    
+    # Test the common plotting scenario
+    print("\nTesting most common plotting scenario...")
+    if not test_common_plotting_scenario():
+        print("Warning: Common plotting scenario failed!")
+    
     # First test the server's code execution environment
-    print("Testing FastAPI server code execution environment...")
+    print("\nTesting FastAPI server code execution environment...")
     if not test_code_execution_environment():
         return "Server code execution environment test failed!"
     
