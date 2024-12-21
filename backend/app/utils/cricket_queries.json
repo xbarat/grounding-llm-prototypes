@@ -1,0 +1,176 @@
+{
+  "version": "1.0",
+  "description": "Comprehensive cricket analysis query set for GIRAFFE text-to-visualization engine",
+  "categories": {
+    "player_performance": {
+      "name": "Player Performance Analysis",
+      "description": "Queries focused on individual player statistics and comparisons",
+      "audience": ["analysts", "fans", "journalists", "coaches"],
+      "queries": [
+        {
+          "id": "pp_001",
+          "text": "Compare the batting performance of Virat Kohli and Joe Root across the last 5 matches",
+          "complexity": "medium",
+          "required_data": ["player_stats", "match_data"],
+          "visualization_type": ["line_chart", "bar_comparison"],
+          "metrics": ["runs", "strike_rate", "average"]
+        },
+        {
+          "id": "pp_002",
+          "text": "Show Rohit Sharma's strike rate progression in T20 games over the last two years",
+          "complexity": "medium",
+          "required_data": ["player_stats", "match_format"],
+          "visualization_type": ["line_chart", "trend_analysis"],
+          "metrics": ["strike_rate", "matches_played"]
+        },
+        {
+          "id": "pp_003",
+          "text": "Which bowlers have dismissed Steve Smith the most across all formats?",
+          "complexity": "high",
+          "required_data": ["dismissal_stats", "player_matchups"],
+          "visualization_type": ["bar_chart", "network_graph"],
+          "metrics": ["dismissal_count", "format_breakdown"]
+        },
+        {
+          "id": "pp_004",
+          "text": "What is Kane Williamson's average runs against spin vs pace in ODIs?",
+          "complexity": "high",
+          "required_data": ["ball_by_ball", "bowling_type"],
+          "visualization_type": ["split_bar", "comparison_chart"],
+          "metrics": ["average", "strike_rate", "dismissal_rate"]
+        }
+      ]
+    },
+    "match_insights": {
+      "name": "Match Insights",
+      "description": "Analysis of match statistics and team performances",
+      "audience": ["analysts", "journalists", "broadcasters"],
+      "queries": [
+        {
+          "id": "mi_001",
+          "text": "Generate a summary of team performance in the last 5 overs for all T20 matches this season",
+          "complexity": "high",
+          "required_data": ["match_data", "over_by_over"],
+          "visualization_type": ["heat_map", "run_progression"],
+          "metrics": ["runs_scored", "wickets_lost", "economy_rate"]
+        },
+        {
+          "id": "mi_002",
+          "text": "How does India's win percentage change when chasing vs batting first in ODIs?",
+          "complexity": "medium",
+          "required_data": ["match_results", "toss_decisions"],
+          "visualization_type": ["pie_chart", "comparison_bars"],
+          "metrics": ["win_percentage", "average_score"]
+        }
+      ]
+    },
+    "venue_analysis": {
+      "name": "Venue Analysis",
+      "description": "Statistics and trends specific to cricket grounds",
+      "audience": ["analysts", "broadcasters", "teams"],
+      "queries": [
+        {
+          "id": "va_001",
+          "text": "What is the average first innings score at MCG in T20 matches over the last 3 years?",
+          "complexity": "medium",
+          "required_data": ["venue_stats", "match_data"],
+          "visualization_type": ["box_plot", "trend_line"],
+          "metrics": ["average_score", "innings_breakdown"]
+        },
+        {
+          "id": "va_002",
+          "text": "Compare spin vs pace bowling performance at Wankhede Stadium in IPL 2023",
+          "complexity": "high",
+          "required_data": ["ball_by_ball", "venue_stats"],
+          "visualization_type": ["split_analysis", "heat_map"],
+          "metrics": ["economy_rate", "wickets_taken", "boundary_percentage"]
+        }
+      ]
+    },
+    "fantasy_analytics": {
+      "name": "Fantasy League Analytics",
+      "description": "Insights for fantasy cricket players",
+      "audience": ["fantasy_players", "analysts"],
+      "queries": [
+        {
+          "id": "fa_001",
+          "text": "Identify top 5 all-rounders based on fantasy points in the last 10 matches",
+          "complexity": "medium",
+          "required_data": ["player_stats", "fantasy_points"],
+          "visualization_type": ["ranked_list", "radar_chart"],
+          "metrics": ["points_average", "consistency_index"]
+        },
+        {
+          "id": "fa_002",
+          "text": "Compare fantasy point trends for top 3 wicket-keepers in IPL 2023",
+          "complexity": "medium",
+          "required_data": ["player_stats", "match_data"],
+          "visualization_type": ["line_comparison", "bar_chart"],
+          "metrics": ["points_trend", "selection_percentage"]
+        }
+      ]
+    },
+    "historical_trends": {
+      "name": "Historical Trends",
+      "description": "Long-term cricket statistics and pattern analysis",
+      "audience": ["researchers", "journalists", "analysts"],
+      "queries": [
+        {
+          "id": "ht_001",
+          "text": "Show the evolution of ODI batting strike rates from 1990 to 2023",
+          "complexity": "high",
+          "required_data": ["historical_stats", "match_data"],
+          "visualization_type": ["time_series", "era_comparison"],
+          "metrics": ["strike_rate", "average_score"]
+        },
+        {
+          "id": "ht_002",
+          "text": "Compare Test cricket win percentages for all teams in home vs away conditions since 2000",
+          "complexity": "medium",
+          "required_data": ["match_results", "venue_data"],
+          "visualization_type": ["stacked_bar", "heat_map"],
+          "metrics": ["win_percentage", "performance_ratio"]
+        }
+      ]
+    },
+    "social_media_visuals": {
+      "name": "Social Media-Ready Visuals",
+      "description": "Shareable cricket analytics and infographics",
+      "audience": ["content_creators", "social_media_managers"],
+      "queries": [
+        {
+          "id": "sm_001",
+          "text": "Create a batting wagon wheel for Babar Azam's century innings",
+          "complexity": "high",
+          "required_data": ["ball_by_ball", "shot_mapping"],
+          "visualization_type": ["wagon_wheel", "shot_distribution"],
+          "metrics": ["runs_scored", "shot_selection"]
+        },
+        {
+          "id": "sm_002",
+          "text": "Generate a timeline visualization of wickets in the World Cup final",
+          "complexity": "medium",
+          "required_data": ["match_events", "commentary"],
+          "visualization_type": ["timeline", "event_chart"],
+          "metrics": ["wicket_moments", "match_context"]
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "total_queries": 12,
+    "categories_count": 6,
+    "last_updated": "2024-03-20",
+    "supported_visualizations": [
+      "line_chart",
+      "bar_chart",
+      "pie_chart",
+      "heat_map",
+      "wagon_wheel",
+      "radar_chart",
+      "timeline",
+      "box_plot",
+      "scatter_plot"
+    ]
+  }
+} 
