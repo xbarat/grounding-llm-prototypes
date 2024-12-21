@@ -93,4 +93,59 @@ async def get_player_stats(player_id: str) -> Dict:
             "data": data
         }
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# F1-specific endpoints
+@router.get("/platforms/f1/standings", tags=["Formula 1"])
+async def get_f1_standings(category: str = "driver") -> Dict:
+    """Get F1 standings (driver or constructor)"""
+    try:
+        fetcher = PlatformFetcher("f1")
+        endpoint = "driver_standings" if category == "driver" else "constructor_standings"
+        data = fetcher.fetch_data(endpoint)
+        return {
+            "status": "success",
+            "data": data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/platforms/f1/races", tags=["Formula 1"])
+async def get_race_results(round: Optional[int] = None) -> Dict:
+    """Get F1 race results"""
+    try:
+        fetcher = PlatformFetcher("f1")
+        params = {"round": str(round)} if round else None
+        data = fetcher.fetch_data("race_results", params)
+        return {
+            "status": "success",
+            "data": data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/platforms/f1/qualifying/{round}", tags=["Formula 1"])
+async def get_qualifying_results(round: int) -> Dict:
+    """Get F1 qualifying results for a specific round"""
+    try:
+        fetcher = PlatformFetcher("f1")
+        data = fetcher.fetch_data("qualifying_results", {"round": str(round)})
+        return {
+            "status": "success",
+            "data": data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/platforms/f1/driver/{driver_id}", tags=["Formula 1"])
+async def get_driver_info(driver_id: str) -> Dict:
+    """Get F1 driver information"""
+    try:
+        fetcher = PlatformFetcher("f1")
+        data = fetcher.fetch_data("driver_info", {"driverId": driver_id})
+        return {
+            "status": "success",
+            "data": data
+        }
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) 
