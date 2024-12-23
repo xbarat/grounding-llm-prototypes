@@ -61,6 +61,37 @@ async def explore_endpoints():
         print("Pole position:")
         print(json.dumps(quali_results[0], indent=2))
 
+        # 6. Specific Driver Season Results
+        print("\n=== Max Verstappen's 2023 Results ===")
+        driver_results = await fetch_data("2023/drivers/max_verstappen/results")
+        driver_races = driver_results["MRData"]["RaceTable"]["Races"]
+        print(f"Number of races: {len(driver_races)}")
+        print("Last race result:")
+        print(json.dumps(driver_races[-1], indent=2))
+
+        # 7. Specific Circuit History
+        print("\n=== Monaco GP Last 5 Winners ===")
+        circuit_results = await fetch_data("circuits/monaco/results/1")
+        circuit_races = circuit_results["MRData"]["RaceTable"]["Races"]
+        print(f"Most recent winner:")
+        print(json.dumps(circuit_races[0]["Results"][0], indent=2))
+
+        # 8. Head to Head - Last Race
+        print("\n=== Verstappen vs Hamilton Last Race ===")
+        last_race = await fetch_data("current/last/results")
+        race_data = last_race["MRData"]["RaceTable"]["Races"][0]
+        results = race_data["Results"]
+        ver_result = next((r for r in results if r["Driver"]["code"] == "VER"), None)
+        ham_result = next((r for r in results if r["Driver"]["code"] == "HAM"), None)
+        print(f"Race: {race_data['raceName']}")
+        if ver_result and ham_result:
+            print(f"Verstappen: P{ver_result['position']} - Hamilton: P{ham_result['position']}")
+            print("Details:")
+            print(json.dumps({
+                "VER": {"position": ver_result["position"], "points": ver_result["points"]},
+                "HAM": {"position": ham_result["position"], "points": ham_result["points"]}
+            }, indent=2))
+
     except httpx.HTTPError as e:
         print(f"HTTP Error: {e}")
     except KeyError as e:
