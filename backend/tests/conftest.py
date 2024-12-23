@@ -4,13 +4,14 @@ import pytest
 import httpx
 import asyncio
 from typing import AsyncGenerator, Dict, Optional, Generator
-from .f1_test_data import (
+
+from backend.tests.f1_test_data import (
     generate_race_calendar,
     generate_driver_standings,
     generate_race_results,
     generate_qualifying_results
 )
-from .test_config import API_CONFIG, TEST_DATA
+from backend.tests.test_config import API_CONFIG, TEST_DATA
 
 class MockResponse:
     def __init__(self, status_code: int, json_data: Dict):
