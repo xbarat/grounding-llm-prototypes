@@ -1,3 +1,5 @@
+'use client'
+
 import { ConnectForm } from "./ConnectForm";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
@@ -58,7 +60,9 @@ export function Sidebar() {
             </div>
           </Card>
         ) : (
-          <ConnectForm />
+          <div className="flex-1">
+            <ConnectForm />
+          </div>
         )}
       </div>
     </div>

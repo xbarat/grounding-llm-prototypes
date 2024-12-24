@@ -10,11 +10,11 @@ export const ENDPOINTS = {
   EXECUTE_CODE: `${API_BASE_URL}/api/v1/execute_code`,
   
   // Platform endpoints
-  PLATFORMS: `${API_BASE_URL}/api/platforms`,
-  PLATFORM_VERIFY: (platform: string) => `${API_BASE_URL}/api/platforms/${platform}/verify`,
-  PLATFORM_CONNECT: (platform: string) => `${API_BASE_URL}/api/platforms/${platform}/connect`,
-  PLATFORM_QUERIES: (platform: string) => `${API_BASE_URL}/api/platforms/${platform}/queries`,
-  PLATFORM_ANALYZE: `${API_BASE_URL}/api/platforms/analyze`
+  PLATFORMS: `${API_BASE_URL}/api/v1/platforms`,
+  PLATFORM_VERIFY: (platform: string) => `${API_BASE_URL}/api/v1/platforms/${platform}/verify`,
+  PLATFORM_CONNECT: (platform: string) => `${API_BASE_URL}/api/v1/platforms/${platform}/connect`,
+  PLATFORM_QUERIES: (platform: string) => `${API_BASE_URL}/api/v1/platforms/${platform}/queries`,
+  PLATFORM_ANALYZE: `${API_BASE_URL}/api/v1/platforms/analyze`
 }
 
 // API types

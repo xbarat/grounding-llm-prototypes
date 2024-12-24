@@ -25,7 +25,6 @@ export default function Page() {
     setResults(null)
 
     try {
-      // Use platform-specific analysis endpoint
       const response = await fetch(ENDPOINTS.PLATFORM_ANALYZE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
