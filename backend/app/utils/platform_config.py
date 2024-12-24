@@ -1,193 +1,97 @@
-from typing import Dict, List, Optional, TypedDict, Literal
+from typing import Dict, Any, Optional, List
 from pydantic import BaseModel
 
 class EndpointConfig(BaseModel):
-    """Configuration for a specific API endpoint"""
     path: str
-    method: Literal["GET", "POST"] = "GET"
+    method: str = "GET"
+    params: Dict[str, Any] = {}
     requires_auth: bool = False
-    rate_limit: Optional[int] = None  # requests per minute
-    params: Dict[str, str] = {}
+    rate_limit: Optional[int] = None
 
 class PlatformConfig(BaseModel):
-    """Configuration for a data platform"""
     id: str
     name: str
-    base_url: str
     description: str
+    base_url: str
     endpoints: Dict[str, EndpointConfig]
     default_queries: List[str]
-    category: Literal["sports", "typing", "finance", "general"]
 
-# Platform-specific configurations
-CRICINFO_CONFIG = PlatformConfig(
-    id="cricinfo",
-    name="CricAPI",
-    base_url="https://api.cricapi.com/v1",
-    description="Comprehensive cricket statistics and live match data",
-    endpoints={
-        "matches": EndpointConfig(
-            path="/matches",
-            method="GET",
-            requires_auth=True,
-            rate_limit=30,  # 30 requests per minute
-            params={
-                "apikey": "",
-                "offset": "0",
-                "date": ""  # Optional date filter
-            }
-        ),
-        "players_search": EndpointConfig(
-            path="/players",
-            method="GET",
-            requires_auth=True,
-            rate_limit=30,
-            params={
-                "apikey": "",
-                "search": "",
-                "offset": "0"
-            }
-        ),
-        "player_stats": EndpointConfig(
-            path="/players_info",
-            method="GET",
-            requires_auth=True,
-            rate_limit=30,
-            params={
-                "apikey": "",
-                "id": ""
-            }
-        ),
-        "match_stats": EndpointConfig(
-            path="/match_info",
-            method="GET",
-            requires_auth=True,
-            rate_limit=30,
-            params={
-                "apikey": "",
-                "id": ""
-            }
-        ),
-        "series_info": EndpointConfig(
-            path="/series_info",
-            method="GET",
-            requires_auth=True,
-            rate_limit=30,
-            params={
-                "apikey": "",
-                "id": ""
-            }
-        )
-    },
-    default_queries=[
-        "Show live match scores",
-        "Search for player statistics",
-        "Get recent match results",
-        "View series standings",
-        "Compare player performances",
-        "Analyze team statistics"
-    ],
-    category="sports"
-)
-
-TYPERACER_CONFIG = PlatformConfig(
-    id="typeracer",
-    name="TypeRacer",
-    base_url="https://data.typeracer.com",
-    description="Typing speed and accuracy statistics",
-    endpoints={
-        "user_stats": EndpointConfig(
-            path="/games",
-            params={"playerId": "", "universe": "play", "n": "100"}
-        )
-    },
-    default_queries=[
-        "Plot my typing speed over time",
-        "Show accuracy vs speed correlation",
-        "Analyze performance by text length"
-    ],
-    category="typing"
-)
-
-F1_CONFIG = PlatformConfig(
-    id="f1",
-    name="Formula 1",
-    base_url="http://ergast.com/api/f1",
-    description="Formula 1 racing statistics and results",
-    endpoints={
-        "current_season": EndpointConfig(
-            path="/current.json",
-            method="GET",
-            requires_auth=False,
-            rate_limit=4,  # Ergast limits to 4 requests per second
-            params={}
-        ),
-        "driver_standings": EndpointConfig(
-            path="/current/driverStandings.json",
-            method="GET",
-            requires_auth=False,
-            rate_limit=4,
-            params={}
-        ),
-        "constructor_standings": EndpointConfig(
-            path="/current/constructorStandings.json",
-            method="GET",
-            requires_auth=False,
-            rate_limit=4,
-            params={}
-        ),
-        "race_results": EndpointConfig(
-            path="/current/results.json",
-            method="GET",
-            requires_auth=False,
-            rate_limit=4,
-            params={"round": ""}  # Optional round number
-        ),
-        "qualifying_results": EndpointConfig(
-            path="/current/qualifying.json",
-            method="GET",
-            requires_auth=False,
-            rate_limit=4,
-            params={"round": ""}
-        ),
-        "driver_info": EndpointConfig(
-            path="/drivers.json",
-            method="GET",
-            requires_auth=False,
-            rate_limit=4,
-            params={"driverId": ""}
-        )
-    },
-    default_queries=[
-        "Show current driver standings",
-        "Display constructor championship points",
-        "Get latest race results",
-        "Compare qualifying performances",
-        "Analyze driver's season progress",
-        "View historical race data"
-    ],
-    category="sports"
-)
-
-# Registry of all supported platforms
-PLATFORM_REGISTRY: Dict[str, PlatformConfig] = {
-    "cricinfo": CRICINFO_CONFIG,
-    "typeracer": TYPERACER_CONFIG,
-    "f1": F1_CONFIG
+PLATFORM_CONFIGS: Dict[str, PlatformConfig] = {
+    "typeracer": PlatformConfig(
+        id="typeracer",
+        name="TypeRacer",
+        description="Competitive typing platform",
+        base_url="https://data.typeracer.com/",
+        endpoints={
+            "user_stats": EndpointConfig(
+                path="users?id={playerId}",
+                method="GET"
+            )
+        },
+        default_queries=[
+            "Show my typing speed over time",
+            "Compare my accuracy with the global average",
+            "Analyze my performance by time of day"
+        ]
+    ),
+    "f1": PlatformConfig(
+        id="f1",
+        name="Formula 1",
+        description="Formula 1 Racing Statistics and Analysis",
+        base_url="http://ergast.com/api/f1",
+        endpoints={
+            "driver_standings": EndpointConfig(
+                path="/current/driverStandings.json",
+                method="GET",
+                rate_limit=30
+            ),
+            "race_results": EndpointConfig(
+                path="/{year}/results.json",
+                method="GET",
+                rate_limit=30
+            ),
+            "qualifying_results": EndpointConfig(
+                path="/{year}/qualifying.json",
+                method="GET",
+                rate_limit=30
+            ),
+            "driver_info": EndpointConfig(
+                path="/drivers/{driverId}.json",
+                method="GET",
+                rate_limit=30
+            ),
+            "constructor_standings": EndpointConfig(
+                path="/{year}/constructorStandings.json",
+                method="GET",
+                rate_limit=30
+            )
+        },
+        default_queries=[
+            "Compare Max Verstappen and Lewis Hamilton's performance in the last 5 races",
+            "Show the correlation between qualifying position and race finish for Ferrari drivers",
+            "Analyze Red Bull's performance trend across the season",
+            "Plot the points progression of the top 3 drivers",
+            "Show the distribution of DNFs by constructor",
+            "Compare pit stop strategies between Mercedes and Red Bull",
+            "Visualize the qualifying gap between teammates",
+            "Plot the championship points gap over time",
+            "Analyze overtaking positions on each circuit",
+            "Show the impact of grid position on race finish position"
+        ]
+    )
 }
 
-def get_platform_config(platform_id: str) -> Optional[PlatformConfig]:
-    """Get configuration for a specific platform"""
-    return PLATFORM_REGISTRY.get(platform_id)
-
 def list_platforms() -> List[Dict[str, str]]:
-    """List all available platforms with basic info"""
+    """List all available platforms"""
     return [
         {
             "id": config.id,
             "name": config.name,
-            "description": config.description,
-            "category": config.category
+            "description": config.description
         }
-        for config in PLATFORM_REGISTRY.values()
-    ] 
+        for config in PLATFORM_CONFIGS.values()
+    ]
+
+def get_platform_config(platform_id: str) -> Optional[PlatformConfig]:
+    """Get configuration for a specific platform"""
+    return PLATFORM_CONFIGS.get(platform_id) 

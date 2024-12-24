@@ -1,10 +1,11 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import requests
 import json
 from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 from .platform_config import get_platform_config, PlatformConfig, EndpointConfig
+import pandas as pd
 
 load_dotenv()
 
@@ -28,7 +29,8 @@ class PlatformFetcher:
         
         self.api_keys = {
             "cricinfo": os.getenv("CRICAPI_KEY", ""),
-            "typeracer": None  # TypeRacer doesn't need API key
+            "typeracer": None,  # TypeRacer doesn't need API key
+            "f1": None  # Ergast API doesn't need API key
         }
         
         # Rate limiting tracking
@@ -53,8 +55,64 @@ class PlatformFetcher:
         """Increment the request counter for rate limiting"""
         if endpoint in self.request_counts:
             self.request_counts[endpoint] += 1
-    
-    def fetch_data(self, endpoint: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
+
+    async def fetch_f1_data(self, query_type: str, params: Dict[str, Any] = None) -> pd.DataFrame:
+        """Fetch and process F1 data based on query type"""
+        data = await self.fetch_data(query_type, params)
+        if not data:
+            return pd.DataFrame()
+
+        if query_type == "driver_standings":
+            standings = data["MRData"]["StandingsTable"]["StandingsLists"][0]["DriverStandings"]
+            return pd.DataFrame([{
+                "position": int(d["position"]),
+                "points": float(d["points"]),
+                "wins": int(d["wins"]),
+                "driver_id": d["Driver"]["driverId"],
+                "driver_name": f"{d['Driver']['givenName']} {d['Driver']['familyName']}",
+                "constructor": d["Constructors"][0]["name"]
+            } for d in standings])
+
+        elif query_type == "race_results":
+            races = data["MRData"]["RaceTable"]["Races"]
+            results = []
+            for race in races:
+                for result in race["Results"]:
+                    results.append({
+                        "race": race["raceName"],
+                        "round": int(race["round"]),
+                        "driver_id": result["Driver"]["driverId"],
+                        "driver_name": f"{result['Driver']['givenName']} {result['Driver']['familyName']}",
+                        "constructor": result["Constructor"]["name"],
+                        "grid": int(result["grid"]),
+                        "position": int(result["position"]),
+                        "points": float(result["points"]),
+                        "status": result["status"],
+                        "fastest_lap": result.get("FastestLap", {}).get("Time", {}).get("time", None)
+                    })
+            return pd.DataFrame(results)
+
+        elif query_type == "qualifying_results":
+            races = data["MRData"]["RaceTable"]["Races"]
+            results = []
+            for race in races:
+                for result in race["QualifyingResults"]:
+                    results.append({
+                        "race": race["raceName"],
+                        "round": int(race["round"]),
+                        "driver_id": result["Driver"]["driverId"],
+                        "driver_name": f"{result['Driver']['givenName']} {result['Driver']['familyName']}",
+                        "constructor": result["Constructor"]["name"],
+                        "position": int(result["position"]),
+                        "q1": result.get("Q1", None),
+                        "q2": result.get("Q2", None),
+                        "q3": result.get("Q3", None)
+                    })
+            return pd.DataFrame(results)
+
+        return pd.DataFrame()
+
+    async def fetch_data(self, endpoint: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """Fetch data from the specified endpoint"""
         endpoint_config = self.config.endpoints.get(endpoint)
         if not endpoint_config:
@@ -90,24 +148,26 @@ class PlatformFetcher:
         except requests.exceptions.RequestException as e:
             raise DataFetchError(f"Failed to fetch data: {str(e)}")
 
-    def get_default_queries(self) -> list[str]:
+    def get_default_queries(self) -> List[str]:
         """Get default analysis queries for the platform"""
         return self.config.default_queries
 
-# Example usage for cricket data
-def fetch_cricket_matches(date: Optional[str] = None) -> Dict[str, Any]:
-    """Fetch cricket matches data"""
-    fetcher = PlatformFetcher("cricinfo")
-    params = {"date": date} if date else {}
-    return fetcher.fetch_data("matches", params)
+# Example usage for F1 data
+async def fetch_f1_driver_comparison(driver1_id: str, driver2_id: str, year: str = "current") -> pd.DataFrame:
+    """Fetch and compare two drivers' performance"""
+    fetcher = PlatformFetcher("f1")
+    params = {"year": year}
+    
+    # Fetch race results for both drivers
+    results = await fetcher.fetch_f1_data("race_results", params)
+    
+    # Filter for the specified drivers
+    comparison = results[results["driver_id"].isin([driver1_id, driver2_id])]
+    return comparison
 
-def fetch_cricket_player_stats(player_id: str) -> Dict[str, Any]:
-    """Fetch cricket player statistics"""
-    fetcher = PlatformFetcher("cricinfo")
-    return fetcher.fetch_data("players", {"id": player_id})
-
-# Example usage for TypeRacer data (existing functionality)
-def fetch_typeracer_stats(user_id: str) -> Dict[str, Any]:
-    """Fetch TypeRacer user statistics"""
-    fetcher = PlatformFetcher("typeracer")
-    return fetcher.fetch_data("user_stats", {"playerId": user_id}) 
+async def fetch_f1_qualifying_analysis(constructor_id: str, year: str = "current") -> pd.DataFrame:
+    """Analyze qualifying performance for a constructor"""
+    fetcher = PlatformFetcher("f1")
+    params = {"year": year, "constructor": constructor_id}
+    
+    return await fetcher.fetch_f1_data("qualifying_results", params) 

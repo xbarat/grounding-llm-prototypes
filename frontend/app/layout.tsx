@@ -5,10 +5,11 @@ import './globals.css'
 
 import { Sidebar } from '@/components/sidebar'
 import { ThemeProvider } from '@/components/theme-provider'
+import { Toaster } from '@/components/ui/toaster'
 
 export const metadata: Metadata = {
-  title: 'Perplexity Clone',
-  description: 'A clone of Perplexity AI interface',
+  title: 'GIRAFFE',
+  description: 'Text-to-Visual Analytics Engine',
 }
 
 export default function RootLayout({
@@ -31,6 +32,7 @@ export default function RootLayout({
               {children}
             </main>
           </div>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

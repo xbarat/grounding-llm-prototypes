@@ -6,14 +6,25 @@ from ..utils.platform_fetcher import (
     PlatformFetcher,
     RateLimitError,
     AuthenticationError,
-    DataFetchError
+    DataFetchError,
+    fetch_f1_driver_comparison,
+    fetch_f1_qualifying_analysis
 )
+from ..utils.code_utils import generate_code, execute_code_safely
+import pandas as pd
+import io
+import base64
 
 router = APIRouter()
 
 class PlatformDataRequest(BaseModel):
     platform_id: str
     endpoint: str
+    params: Optional[Dict] = None
+
+class AnalysisRequest(BaseModel):
+    platform_id: str
+    query: str
     params: Optional[Dict] = None
 
 @router.get("/platforms", tags=["Platforms"])
@@ -47,12 +58,70 @@ async def get_platform_queries(platform_id: str) -> Dict:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/platforms/analyze", tags=["Analysis"])
+async def analyze_platform_data(request: AnalysisRequest) -> Dict:
+    """Generate and execute analysis code based on natural language query"""
+    try:
+        fetcher = PlatformFetcher(request.platform_id)
+        
+        # Fetch appropriate data based on the query
+        if request.platform_id == "f1":
+            # Determine the type of data needed based on the query
+            if "qualifying" in request.query.lower():
+                df = await fetcher.fetch_f1_data("qualifying_results", request.params)
+            elif "standings" in request.query.lower():
+                df = await fetcher.fetch_f1_data("driver_standings", request.params)
+            else:
+                df = await fetcher.fetch_f1_data("race_results", request.params)
+        else:
+            # Handle other platforms
+            data = await fetcher.fetch_data(request.endpoint, request.params)
+            df = pd.DataFrame(data)
+
+        # Generate analysis code
+        code_response = generate_code(df, request.query)
+        if not code_response:
+            raise HTTPException(status_code=500, detail="Failed to generate analysis code")
+
+        # Execute the generated code
+        success, result, modified_code = execute_code_safely(code_response, df)
+        
+        if not success:
+            raise HTTPException(status_code=500, detail=str(result))
+
+        # Convert figure to base64 if present
+        figure_data = None
+        if isinstance(result, dict) and result.get('figure'):
+            buf = io.BytesIO()
+            result['figure'].savefig(buf, format='png', bbox_inches='tight')
+            buf.seek(0)
+            figure_data = base64.b64encode(buf.getvalue()).decode('utf-8')
+
+        return {
+            "status": "success",
+            "data": {
+                "result": result.get('result') if isinstance(result, dict) else result,
+                "figure": figure_data,
+                "code": modified_code
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RateLimitError as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except DataFetchError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/platforms/fetch", tags=["Platforms"])
 async def fetch_platform_data(request: PlatformDataRequest) -> Dict:
     """Fetch data from a specific platform endpoint"""
     try:
         fetcher = PlatformFetcher(request.platform_id)
-        data = fetcher.fetch_data(request.endpoint, request.params)
+        data = await fetcher.fetch_data(request.endpoint, request.params)
         return {
             "status": "success",
             "data": data
