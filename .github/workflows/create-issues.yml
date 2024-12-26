@@ -24,30 +24,27 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        python - <<EOF
-
-import json
-import requests
-
-with open('tickets.json', 'r') as f:
-    tickets = json.load(f)
-
-headers = {
-    'Authorization': f'Bearer {GITHUB_TOKEN}',
-    'Accept': 'application/vnd.github.v3+json'
-}
-
-for ticket in tickets:
-    response = requests.post(
-        f'https://api.github.com/repos/${{{{ github.repository }}}}/issues',
-        headers=headers,
-        json={
-            'title': ticket['title'],
-            'body': ticket['body']
+        import json
+        import requests
+        
+        with open('tickets.json', 'r') as f:
+            tickets = json.load(f)
+        
+        headers = {
+            'Authorization': f'Bearer {GITHUB_TOKEN}',
+            'Accept': 'application/vnd.github.v3+json'
         }
-    )
-    if response.status_code == 201:
-        print(f"Issue \"{ticket['title']}\" created successfully.")
-    else:
-        print(f"Failed to create issue \"{ticket['title']}\":", response.json())
-EOF
+        
+        for ticket in tickets:
+            response = requests.post(
+                f'https://api.github.com/repos/${{{{ github.repository }}}}/issues',
+                headers=headers,
+                json={
+                    'title': ticket['title'],
+                    'body': ticket['body']
+                }
+            )
+            if response.status_code == 201:
+                print(f"Issue \"{ticket['title']}\" created successfully.")
+            else:
+                print(f"Failed to create issue \"{ticket['title']}\":", response.json())
