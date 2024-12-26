@@ -1,0 +1,27 @@
+# Tickets for automatic GitHub issue creation
+# Each ticket should have at least a title and body
+# Optional fields: labels, assignees, milestone
+
+- title: Test Ticket - F1 API Integration
+  body: |
+    This gives us what we need:
+    - Successful F1 API connection
+    - Real data verification
+    - Error handling testing
+    - Clear output format
+  labels: 
+    - enhancement
+    - api
+  assignees:
+    - your-github-username
+
+- title: Test Ticket - Cricket API Integration
+  body: |
+    This gives us what we need:
+    - Successful Cricket API connection
+    - Real data verification
+    - Error handling testing
+    - Clear output format
+  labels:
+    - enhancement
+    - api 

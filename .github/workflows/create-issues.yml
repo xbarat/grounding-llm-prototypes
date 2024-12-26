@@ -3,11 +3,15 @@ name: Create GitHub Issues
 on:
   push:
     paths:
-      - tickets.json
+      - 'tickets.yaml'
 
 jobs:
   create_issues:
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
@@ -18,33 +22,54 @@ jobs:
         python-version: '3.x'
 
     - name: Install dependencies
-      run: pip install requests
+      run: |
+        pip install requests
+        pip install pyyaml
 
     - name: Create GitHub Issues
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
-        import json
+        import yaml
+        import os
         import requests
-        
-        with open('tickets.json', 'r') as f:
-            tickets = json.load(f)
+
+        # Read the tickets from yaml file
+        with open('tickets.yaml', 'r') as f:
+            tickets = yaml.safe_load(f)
+
+        # Setup GitHub API
+        github_token = os.environ['GITHUB_TOKEN']
+        github_repository = os.environ['GITHUB_REPOSITORY']
         
         headers = {
-            'Authorization': f'Bearer {GITHUB_TOKEN}',
+            'Authorization': f'Bearer {github_token}',
             'Accept': 'application/vnd.github.v3+json'
         }
-        
+
+        # Create each issue
         for ticket in tickets:
+            # Prepare the issue data
+            issue_data = {
+                'title': ticket['title'],
+                'body': ticket['body']
+            }
+            
+            # Add optional fields if they exist
+            if 'labels' in ticket:
+                issue_data['labels'] = ticket['labels']
+            if 'assignees' in ticket:
+                issue_data['assignees'] = ticket['assignees']
+            if 'milestone' in ticket:
+                issue_data['milestone'] = ticket['milestone']
+
             response = requests.post(
-                f'https://api.github.com/repos/${{{{ github.repository }}}}/issues',
+                f'https://api.github.com/repos/{github_repository}/issues',
                 headers=headers,
-                json={
-                    'title': ticket['title'],
-                    'body': ticket['body']
-                }
+                json=issue_data
             )
             if response.status_code == 201:
-                print(f"Issue \"{ticket['title']}\" created successfully.")
+                print(f"Issue '{ticket['title']}' created successfully")
             else:
-                print(f"Failed to create issue \"{ticket['title']}\":", response.json())
+                print(f"Failed to create issue '{ticket['title']}':", response.text)
