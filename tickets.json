@@ -6,5 +6,9 @@
     {
         "title": "Bug Fix",
         "body": "Details about the bug fix."
+    },
+    {
+        "title": "Test Ticket",
+        "body": "This is a test ticket to verify the GitHub Actions workflow."
     }
 ]
