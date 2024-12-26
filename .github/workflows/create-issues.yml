@@ -26,46 +26,44 @@ jobs:
         pip install requests
         pip install pyyaml
 
-    - name: Create GitHub Issues
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITHUB_REPOSITORY: ${{ github.repository }}
+    - name: Create script
       run: |
+        cat > create_issues.py << 'EOL'
         import yaml
         import os
         import requests
 
         # Read the tickets from yaml file
-        with open('tickets.yaml', 'r') as f:
+        with open("tickets.yaml", "r") as f:
             tickets = yaml.safe_load(f)
 
         # Setup GitHub API
-        github_token = os.environ['GITHUB_TOKEN']
-        github_repository = os.environ['GITHUB_REPOSITORY']
+        github_token = os.environ["GITHUB_TOKEN"]
+        github_repository = os.environ["GITHUB_REPOSITORY"]
         
         headers = {
-            'Authorization': f'Bearer {github_token}',
-            'Accept': 'application/vnd.github.v3+json'
+            "Authorization": f"Bearer {github_token}",
+            "Accept": "application/vnd.github.v3+json"
         }
 
         # Create each issue
         for ticket in tickets:
             # Prepare the issue data
             issue_data = {
-                'title': ticket['title'],
-                'body': ticket['body']
+                "title": ticket["title"],
+                "body": ticket["body"]
             }
             
             # Add optional fields if they exist
-            if 'labels' in ticket:
-                issue_data['labels'] = ticket['labels']
-            if 'assignees' in ticket:
-                issue_data['assignees'] = ticket['assignees']
-            if 'milestone' in ticket:
-                issue_data['milestone'] = ticket['milestone']
+            if "labels" in ticket:
+                issue_data["labels"] = ticket["labels"]
+            if "assignees" in ticket:
+                issue_data["assignees"] = ticket["assignees"]
+            if "milestone" in ticket:
+                issue_data["milestone"] = ticket["milestone"]
 
             response = requests.post(
-                f'https://api.github.com/repos/{github_repository}/issues',
+                f"https://api.github.com/repos/{github_repository}/issues",
                 headers=headers,
                 json=issue_data
             )
@@ -73,3 +71,10 @@ jobs:
                 print(f"Issue '{ticket['title']}' created successfully")
             else:
                 print(f"Failed to create issue '{ticket['title']}':", response.text)
+        EOL
+
+    - name: Create GitHub Issues
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: python create_issues.py
