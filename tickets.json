@@ -1,14 +1,6 @@
 [
     {
-        "title": "New Feature",
-        "body": "Description of the new feature."
-    },
-    {
-        "title": "Bug Fix",
-        "body": "Details about the bug fix."
-    },
-    {
-        "title": "Test Ticket",
-        "body": "This is a test ticket to verify the GitHub Actions workflow."
+        "title": "Test Ticket: F1 API Integration",
+        "body": "This gives us what we need:\n- Successful F1 API connection\n- Real data verification\n- Error handling testing\n- Clear output format"
     }
 ]
