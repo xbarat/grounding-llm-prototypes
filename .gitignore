@@ -28,3 +28,4 @@ ENV/
 # Byte-compiled files
 *.pyc
 *.pyo
+venv311/
