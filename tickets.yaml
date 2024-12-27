@@ -12,27 +12,7 @@
   labels: 
     - enhancement
     - api
+  project:
+    - "v1"
   assignees:
     - barat-paim
-
-- title: Test Ticket - Cricket API Integration
-  body: |
-    This gives us what we need:
-    - Successful Cricket API connection
-    - Real data verification
-    - Error handling testing
-    - Clear output format
-  labels:
-    - enhancement
-    - api 
-
-- title: Test Ticket - Tennis API Integration
-  body: |
-    This gives us what we need:
-    - Successful Tennis API connection
-    - Real data verification
-    - Error handling testing
-    - Clear output format
-  labels:
-    - enhancement
-    - api
