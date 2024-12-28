@@ -125,123 +125,219 @@
 ## 6. Analysis Engine
 
 ### 6.0 Query Processing Pipeline
-# [NEW DECISION REQUIRED] Query to API Translation Layer
 
-#### Current Flow:
-```
-User Query (text) -> Code Generation -> DataFrame Analysis -> Visualization
-```
+#### Implementation Plan (Claude Integration)
 
-#### Proposed Enhanced Flow:
-```
-User Query (text) -> Query Processing LLM -> API Endpoint Selection -> Data Fetching -> 
-DataFrame Creation -> Code Generation -> Analysis -> Visualization
-```
-
-#### LLM Options Analysis:
-
-1. **GPT-4**
-   - Pros:
-     - Excellent natural language understanding
-     - Strong context handling for complex queries
-     - Reliable API endpoint mapping
-     - Can handle ambiguous queries well
-   - Cons:
-     - Higher cost per query
-     - API rate limits
-     - Closed source
-     - Latency considerations
-
-2. **Claude (Anthropic)**
-   - Pros:
-     - Strong reasoning capabilities
-     - Good at structured output
-     - Competitive pricing
-     - Already integrated in our system
-   - Cons:
-     - Similar limitations as GPT-4
-     - Less community resources
-     - Potential vendor lock-in
-
-3. **Open Source LLMs (Llama, etc.)**
-   - Pros:
-     - Self-hosted solution
-     - No per-query costs
-     - Customizable for our use case
-     - No rate limits
-   - Cons:
-     - Infrastructure overhead
-     - Lower performance than GPT-4/Claude
-     - Requires fine-tuning
-     - Higher maintenance effort
-
-#### Example Query Processing:
+1. **Query Processor Class Structure**:
 ```python
-# Input Query
-"Show me Max Verstappen's performance trend in the last 5 races"
+class QueryProcessor:
+    def __init__(self, anthropic_client):
+        self.client = anthropic_client
+        self.system_prompt = """
+        You are a query processing expert that converts natural language queries 
+        about F1 and TypeRacer data into structured API calls and analysis requirements.
+        Available F1 endpoints:
+        - /current/driverStandings.json
+        - /drivers/{driverId}/results.json
+        - /current/last/results.json
+        Available TypeRacer endpoints:
+        - /pit/race_history
+        - /text_stats
+        """
 
-# LLM Processing Required:
-1. Identify entity (driver="max_verstappen")
-2. Identify time range (last_n_races=5)
-3. Identify metric (performance_trend=True)
-4. Map to API endpoints:
-   - /drivers/max_verstappen/results.json?limit=5
-   - /current/driverStandings.json
+    async def process_query(self, query: str) -> Dict[str, Any]:
+        """Process natural language query into API calls and analysis requirements."""
+        prompt = self._build_prompt(query)
+        response = await self.client.generate(prompt)
+        return self._parse_response(response)
 
-# Output Structure:
-{
+    def _build_prompt(self, query: str) -> str:
+        return f"""
+        Convert this query into API calls and analysis requirements:
+        {query}
+
+        Output must be valid JSON with this structure:
+        {{
+            "api_calls": [
+                {{
+                    "endpoint": str,
+                    "parameters": dict,
+                    "required_fields": list[str]
+                }}
+            ],
+            "analysis_requirements": {{
+                "metrics": list[str],
+                "visualization": str,
+                "additional_processing": dict
+            }}
+        }}
+        """
+
+2. **Query Categories and Templates**:
+```python
+QUERY_TEMPLATES = {
+    "driver_performance": {
+        "pattern": r"(.*performance.*|.*results.*|.*stats.*) (for|of) (?P<driver>.*)",
+        "api_template": {
+            "endpoint": "/drivers/{driver}/results.json",
+            "required_fields": ["position", "points", "grid"]
+        }
+    },
+    "race_comparison": {
+        "pattern": r"compare (?P<driver1>.*) and (?P<driver2>.*)",
+        "api_template": {
+            "endpoint": [
+                "/drivers/{driver1}/results.json",
+                "/drivers/{driver2}/results.json"
+            ]
+        }
+    },
+    "typeracer_trend": {
+        "pattern": r"(typing|speed|accuracy) (trend|history|progress)",
+        "api_template": {
+            "endpoint": "/pit/race_history",
+            "parameters": {"n": 100}
+        }
+    }
+}
+```
+
+3. **Response Processing**:
+```python
+class QueryResponse:
+    def __init__(self, api_calls: List[Dict], analysis_reqs: Dict):
+        self.api_calls = api_calls
+        self.analysis_requirements = analysis_reqs
+
+    async def execute(self) -> DataFrame:
+        """Execute API calls and create DataFrame."""
+        data = []
+        for call in self.api_calls:
+            response = await fetch_platform_data(
+                endpoint=call["endpoint"],
+                params=call["parameters"]
+            )
+            data.append(response)
+        return self._create_dataframe(data)
+
+    def _create_dataframe(self, data: List[Dict]) -> DataFrame:
+        """Convert API responses to analysis-ready DataFrame."""
+        # DataFrame creation logic
+        pass
+```
+
+4. **Integration with Analysis Engine**:
+```python
+class AnalysisEngine:
+    def __init__(self):
+        self.query_processor = QueryProcessor(anthropic_client)
+        
+    async def process_analysis_request(self, query: str):
+        # 1. Process query
+        query_response = await self.query_processor.process_query(query)
+        
+        # 2. Execute API calls and create DataFrame
+        df = await query_response.execute()
+        
+        # 3. Generate analysis code
+        code = self.generate_analysis_code(
+            df, 
+            query_response.analysis_requirements
+        )
+        
+        # 4. Execute analysis
+        result = self.execute_analysis(code, df)
+        
+        return result
+```
+
+5. **Example Prompts and Responses**:
+```python
+# Example 1: Driver Performance
+Input: "Show me Max Verstappen's performance trend in the last 5 races"
+Output: {
     "api_calls": [
         {
             "endpoint": "/drivers/max_verstappen/results.json",
             "parameters": {"limit": 5},
             "required_fields": ["position", "points", "grid"]
-        },
-        {
-            "endpoint": "/current/driverStandings.json",
-            "parameters": {},
-            "required_fields": ["points", "position", "wins"]
         }
     ],
     "analysis_requirements": {
-        "trend_analysis": True,
         "metrics": ["position", "points"],
-        "visualization": "line_chart"
+        "visualization": "line_chart",
+        "additional_processing": {
+            "trend_analysis": True,
+            "moving_average": 3
+        }
+    }
+}
+
+# Example 2: Multi-Driver Comparison
+Input: "Compare Hamilton and Verstappen's qualifying performances"
+Output: {
+    "api_calls": [
+        {
+            "endpoint": "/drivers/hamilton/qualifying.json",
+            "parameters": {"season": "current"},
+            "required_fields": ["Q1", "Q2", "Q3", "position"]
+        },
+        {
+            "endpoint": "/drivers/max_verstappen/qualifying.json",
+            "parameters": {"season": "current"},
+            "required_fields": ["Q1", "Q2", "Q3", "position"]
+        }
+    ],
+    "analysis_requirements": {
+        "metrics": ["Q3_time", "position"],
+        "visualization": "dual_line_chart",
+        "additional_processing": {
+            "time_conversion": True,
+            "head_to_head": True
+        }
     }
 }
 ```
 
-#### Decision Factors:
-1. **Performance Requirements**:
-   - Query processing time < 1s
-   - Accuracy in endpoint mapping > 95%
-   - Handle complex multi-endpoint queries
+6. **Error Handling and Validation**:
+```python
+class QueryValidationError(Exception):
+    pass
 
-2. **Cost Considerations**:
-   - Per-query cost vs. infrastructure cost
-   - Development and maintenance effort
-   - Training/fine-tuning costs
+class QueryValidator:
+    def validate_query_response(self, response: Dict) -> bool:
+        required_fields = ["api_calls", "analysis_requirements"]
+        if not all(field in response for field in required_fields):
+            raise QueryValidationError("Missing required fields")
+        
+        for call in response["api_calls"]:
+            if not self._validate_api_call(call):
+                raise QueryValidationError(f"Invalid API call: {call}")
+        
+        return True
 
-3. **Scalability**:
-   - Query volume expectations
-   - Infrastructure requirements
-   - Maintenance overhead
+    def _validate_api_call(self, call: Dict) -> bool:
+        required_fields = ["endpoint", "parameters", "required_fields"]
+        return all(field in call for field in required_fields)
+```
 
-4. **Development Timeline**:
-   - GPT-4/Claude: 1-2 weeks
-   - Open Source LLM: 3-4 weeks + training time
+7. **Performance Monitoring**:
+```python
+class QueryMetrics:
+    def __init__(self):
+        self.metrics = {
+            "query_processing_time": [],
+            "api_call_time": [],
+            "analysis_time": []
+        }
 
-#### Recommendation:
-Initial implementation using Claude (already integrated) with future migration path to self-hosted solution:
+    def record_metric(self, metric_name: str, value: float):
+        self.metrics[metric_name].append(value)
 
-1. **Phase 1** (Current - 2 weeks):
-   - Implement with Claude
-   - Build query processing pipeline
-   - Gather query patterns and training data
-
-2. **Phase 2** (Future - 1 month):
-   - Evaluate self-hosted LLM performance
-   - Fine-tune on collected data
-   - Implement hybrid approach if needed
+    def get_average(self, metric_name: str) -> float:
+        values = self.metrics[metric_name]
+        return sum(values) / len(values) if values else 0.0
+```
 
 ### 6.1 Query Processing
 - Natural language processing
