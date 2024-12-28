@@ -7,6 +7,8 @@ venv/
 env/
 ENV/
 .venv/
+venv311
+.venv311
 
 # IDE specific files
 .idea/
