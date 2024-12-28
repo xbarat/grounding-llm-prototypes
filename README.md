@@ -207,3 +207,88 @@ curl http://localhost:8000/api/v1/query_guidance?max_suggestions=3
   ]
 }
 ```
+
+## Data Pipeline
+
+### Pipeline Components
+
+1. **Data Ingestion**
+   - F1 API data fetching
+   - TypeRacer data fetching
+   - Performance monitoring
+
+2. **Data Normalization**
+   - F1 race data normalization
+   - F1 standings data normalization
+   - TypeRacer data normalization
+   - Schema validation
+
+3. **Data Validation**
+   - Input validation
+   - Schema validation
+   - Data type checking
+   - Performance metrics validation
+
+### Usage Examples
+
+1. **F1 Driver Standings**
+```python
+from app.utils.platform_fetcher import fetch_platform_data
+from app.utils.normalizer import DataNormalizer
+
+# Fetch driver standings
+raw_data = await fetch_platform_data("f1", "max_verstappen", "driver_standings")
+
+# Normalize data
+normalizer = DataNormalizer()
+normalized_data = normalizer.normalize_f1_standings_data(raw_data)
+
+# Access driver data
+driver_standings = normalized_data["driver_standings"]
+drivers = normalized_data["drivers"]
+constructors = normalized_data["constructors"]
+```
+
+2. **TypeRacer Data**
+```python
+# Fetch TypeRacer data
+raw_data = await fetch_platform_data("typeracer", "username", "user_stats")
+
+# Normalize data
+normalizer = DataNormalizer()
+normalized_data = normalizer.normalize_typeracer_data(raw_data)
+
+# Access normalized data
+wpm = normalized_data["wpm"]
+accuracy = normalized_data["accuracy"]
+session_id = normalized_data["session_id"]
+```
+
+### Running Tests
+
+1. **Integration Tests**
+```bash
+# Run all integration tests
+pytest tests/test_pipeline_integration.py -v
+
+# Run specific test categories
+pytest tests/test_pipeline_integration.py -v -m "real_api"  # Real API tests
+pytest tests/test_pipeline_integration.py -v -m "performance"  # Performance tests
+```
+
+2. **Test Categories**
+   - Pipeline Flow Tests: Verify complete data pipeline
+   - Cross-Platform Tests: Verify data consistency
+   - Error Handling Tests: Verify error cases
+   - Performance Tests: Verify timing thresholds
+   - Real API Tests: Test with actual API data
+
+3. **Performance Thresholds**
+```python
+PERFORMANCE_THRESHOLDS = {
+    "ingestion_time": 2.0,  # seconds
+    "normalization_time": 1.0,
+    "query_processing_time": 3.0,
+    "total_pipeline_time": 7.0
+}
+```
