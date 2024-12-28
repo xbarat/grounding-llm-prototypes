@@ -40,16 +40,26 @@ Return a JSON object specifying:
 1. Which F1 API endpoint to use (one of: /api/f1/races, /api/f1/qualifying, /api/f1/drivers, /api/f1/constructors, /api/f1/laps, /api/f1/pitstops)
 2. What parameters to include in the API call
 
+Required parameter formats:
+- Season/year should be in params as 'season'
+- Circuit names should be in snake_case (e.g., 'monaco', 'silverstone')
+- Driver IDs should be in snake_case (e.g., 'lewis_hamilton', 'max_verstappen')
+- Constructor IDs should be in snake_case (e.g., 'red_bull', 'ferrari')
+- Round numbers should be numeric (e.g., '1', '2', '3')
+
 Format:
 {{
     "endpoint": "/api/f1/...",
     "params": {{
-        "param1": "value1",
-        "param2": "value2"
+        "season": "2024",  // Required for most queries
+        "round": "1",      // Optional, for specific races
+        "circuit": "monaco",  // Optional, for circuit-specific queries
+        "driver": "lewis_hamilton",  // Optional, for driver-specific queries
+        "constructor": "red_bull"  // Optional, for constructor-specific queries
     }}
 }}
 
-Use snake_case for parameter values. Return only the JSON."""
+Return only the JSON."""
                 }],
                 max_tokens=1000
             )
@@ -77,15 +87,15 @@ Use snake_case for parameter values. Return only the JSON."""
                 params={}
             )
 
-# Example usage
+# Test queries
 async def main():
     processor = QueryProcessor()
     
     # Test different types of queries
     queries = [
         "What are the results of the 2024 Australian Grand Prix?",
-        "Show me Max Verstappen's qualifying results in Monaco 2023",
-        "Compare pit stop times between Red Bull and Ferrari in the last race"
+        "How did Lewis Hamilton perform in qualifying at Monaco 2023?",
+        "Show me Red Bull's constructor points for 2023"
     ]
     
     for query in queries:
