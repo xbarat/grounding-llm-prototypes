@@ -50,13 +50,41 @@ class NormalizedDataValidator(BaseModel):
     def validate_metrics(cls, v, info):
         platform = info.data.get('platform')
         if platform == 'f1':
-            required_fields = ['races', 'circuits', 'drivers', 'constructors']
-            if not all(field in v for field in required_fields):
-                raise ValidationError(f'Missing required F1 fields: {required_fields}')
-            
-            # Validate data types
-            if not isinstance(v['races'], list):
-                raise ValidationError('F1 races must be a list')
+            # Check if this is race data or standings data
+            if 'races' in v:
+                # Race data validation
+                required_fields = ['races', 'circuits', 'drivers', 'constructors']
+                if not all(field in v for field in required_fields):
+                    raise ValidationError(f'Missing required F1 race fields: {required_fields}')
+                
+                # Validate data types
+                if not isinstance(v['races'], list):
+                    raise ValidationError('F1 races must be a list')
+            else:
+                # Standings data validation
+                required_fields = ['drivers', 'constructors', 'driver_standings']
+                if not all(field in v for field in required_fields):
+                    raise ValidationError(f'Missing required F1 standings fields: {required_fields}')
+                
+                # Validate data types
+                if not isinstance(v['driver_standings'], list):
+                    raise ValidationError('F1 driver standings must be a list')
+                if not isinstance(v['drivers'], list):
+                    raise ValidationError('F1 drivers must be a list')
+                if not isinstance(v['constructors'], list):
+                    raise ValidationError('F1 constructors must be a list')
+                
+                # Validate standings data
+                for standing in v['driver_standings']:
+                    if not all(k in standing for k in ['driver_id', 'points', 'position', 'wins']):
+                        raise ValidationError('Invalid driver standing format')
+                    if not isinstance(standing['points'], (int, float)):
+                        raise ValidationError('Driver standing points must be numeric')
+                    if not isinstance(standing['position'], int):
+                        raise ValidationError('Driver standing position must be an integer')
+                    if not isinstance(standing['wins'], int):
+                        raise ValidationError('Driver standing wins must be an integer')
+
         elif platform == 'typeracer':
             required_fields = ['wpm', 'accuracy', 'session_id']
             if not all(field in v for field in required_fields):
