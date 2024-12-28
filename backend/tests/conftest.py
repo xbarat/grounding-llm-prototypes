@@ -3,15 +3,20 @@
 import pytest
 import httpx
 import asyncio
+import sys
+import os
 from typing import AsyncGenerator, Dict, Optional, Generator
 
-from backend.tests.f1_test_data import (
+# Add the parent directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from tests.f1_test_data import (
     generate_race_calendar,
     generate_driver_standings,
     generate_race_results,
     generate_qualifying_results
 )
-from backend.tests.test_config import API_CONFIG, TEST_DATA
+from tests.test_config import API_CONFIG, TEST_DATA
 
 class MockResponse:
     def __init__(self, status_code: int, json_data: Dict):
