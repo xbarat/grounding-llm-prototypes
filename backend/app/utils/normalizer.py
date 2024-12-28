@@ -191,6 +191,63 @@ class DataNormalizer:
 
         return normalized_data
 
+    @classmethod
+    def normalize_f1_standings_data(cls, raw_data: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Normalize driver and constructor standings data.
+        Returns a dictionary with normalized data for each model type.
+        """
+        standings_list = raw_data.get("MRData", {}).get("StandingsTable", {}).get("StandingsLists", [])
+        if not standings_list:
+            return {
+                "drivers": [],
+                "constructors": [],
+                "driver_standings": [],
+                "constructor_standings": []
+            }
+
+        current_standings = standings_list[0]  # Get the most recent standings
+        race_id = f"{current_standings.get('season')}_{current_standings.get('round')}"
+        
+        normalized_data = {
+            "drivers": [],
+            "constructors": [],
+            "driver_standings": [],
+            "constructor_standings": []
+        }
+
+        # Process driver standings
+        for standing in current_standings.get("DriverStandings", []):
+            driver_data = standing.get("Driver", {})
+            constructor_data = standing.get("Constructors", [{}])[0]  # Get first constructor
+            
+            normalized_data["drivers"].append(cls.normalize_f1_driver(driver_data))
+            normalized_data["constructors"].append(cls.normalize_f1_constructor(constructor_data))
+            normalized_data["driver_standings"].append(cls.normalize_f1_driver_standing(standing, race_id))
+
+        # Process constructor standings if available
+        for standing in current_standings.get("ConstructorStandings", []):
+            constructor_data = standing.get("Constructor", {})
+            normalized_data["constructors"].append(cls.normalize_f1_constructor(constructor_data))
+            normalized_data["constructor_standings"].append(cls.normalize_f1_constructor_standing(standing, race_id))
+
+        # Remove duplicates while preserving order
+        for key in normalized_data:
+            seen = set()
+            normalized_data[key] = [
+                x for x in normalized_data[key] 
+                if not (
+                    tuple(sorted(x.items())) in seen 
+                    or seen.add(tuple(sorted(x.items())))
+                )
+            ]
+
+        # Validate normalized data
+        if not validate_pipeline_stage('normalization', normalized_data, platform='f1'):
+            raise ValueError("Normalized F1 standings data failed validation")
+
+        return normalized_data
+
 # Example usage:
 # normalizer = DataNormalizer()
 # normalized_data = normalizer.normalize_f1_race_data(raw_api_response)
