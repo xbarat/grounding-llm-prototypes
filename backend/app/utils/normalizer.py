@@ -6,6 +6,7 @@ Provides functions to transform raw API data into a format matching our database
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import logging
+from .pipeline_validator import validate_pipeline_stage
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ class DataNormalizer:
     @staticmethod
     def normalize_f1_driver(raw_driver: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize driver data from F1 API."""
-        return {
+        normalized = {
             "driver_id": raw_driver.get("driverId"),
             "code": raw_driver.get("code"),
             "number": int(raw_driver.get("permanentNumber", 0)) if raw_driver.get("permanentNumber") else None,
@@ -25,20 +26,22 @@ class DataNormalizer:
             "family_name": raw_driver.get("familyName"),
             "nationality": raw_driver.get("nationality")
         }
+        return normalized
 
     @staticmethod
     def normalize_f1_constructor(raw_constructor: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize constructor/team data from F1 API."""
-        return {
+        normalized = {
             "constructor_id": raw_constructor.get("constructorId"),
             "name": raw_constructor.get("name"),
             "nationality": raw_constructor.get("nationality")
         }
+        return normalized
 
     @staticmethod
     def normalize_f1_circuit(raw_circuit: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize circuit data from F1 API."""
-        return {
+        normalized = {
             "circuit_id": raw_circuit.get("circuitId"),
             "name": raw_circuit.get("circuitName"),
             "location": raw_circuit.get("Location", {}).get("locality"),
@@ -46,6 +49,7 @@ class DataNormalizer:
             "lat": float(raw_circuit.get("Location", {}).get("lat", 0)),
             "lng": float(raw_circuit.get("Location", {}).get("long", 0))
         }
+        return normalized
 
     @staticmethod
     def normalize_f1_race(raw_race: Dict[str, Any]) -> Dict[str, Any]:
@@ -57,7 +61,7 @@ class DataNormalizer:
             race_date = None
             logger.warning(f"Failed to parse date for race: {raw_race.get('raceName')}")
 
-        return {
+        normalized = {
             "race_id": raw_race.get("raceId"),
             "season": int(raw_race.get("season", 0)),
             "round": int(raw_race.get("round", 0)),
@@ -66,12 +70,13 @@ class DataNormalizer:
             "date": race_date,
             "time": raw_race.get("time")
         }
+        return normalized
 
     @staticmethod
     def normalize_f1_race_result(raw_result: Dict[str, Any], race_data: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize race result data from F1 API."""
         fastest_lap = raw_result.get("FastestLap", {})
-        return {
+        normalized = {
             "race_id": race_data.get("race_id"),
             "driver_id": raw_result.get("Driver", {}).get("driverId"),
             "constructor_id": raw_result.get("Constructor", {}).get("constructorId"),
@@ -87,11 +92,12 @@ class DataNormalizer:
             "fastest_lap_time": fastest_lap.get("Time", {}).get("time"),
             "status": raw_result.get("status")
         }
+        return normalized
 
     @staticmethod
     def normalize_f1_qualifying_result(raw_qualifying: Dict[str, Any], race_data: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize qualifying result data from F1 API."""
-        return {
+        normalized = {
             "race_id": race_data.get("race_id"),
             "driver_id": raw_qualifying.get("Driver", {}).get("driverId"),
             "constructor_id": raw_qualifying.get("Constructor", {}).get("constructorId"),
@@ -100,28 +106,31 @@ class DataNormalizer:
             "q2": raw_qualifying.get("Q2"),
             "q3": raw_qualifying.get("Q3")
         }
+        return normalized
 
     @staticmethod
     def normalize_f1_driver_standing(raw_standing: Dict[str, Any], race_id: str) -> Dict[str, Any]:
         """Normalize driver standing data from F1 API."""
-        return {
+        normalized = {
             "race_id": race_id,
             "driver_id": raw_standing.get("Driver", {}).get("driverId"),
             "points": float(raw_standing.get("points", 0)),
             "position": int(raw_standing.get("position", 0)),
             "wins": int(raw_standing.get("wins", 0))
         }
+        return normalized
 
     @staticmethod
     def normalize_f1_constructor_standing(raw_standing: Dict[str, Any], race_id: str) -> Dict[str, Any]:
         """Normalize constructor standing data from F1 API."""
-        return {
+        normalized = {
             "race_id": race_id,
             "constructor_id": raw_standing.get("Constructor", {}).get("constructorId"),
             "points": float(raw_standing.get("points", 0)),
             "position": int(raw_standing.get("position", 0)),
             "wins": int(raw_standing.get("wins", 0))
         }
+        return normalized
 
     @classmethod
     def normalize_f1_race_data(cls, raw_data: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
@@ -158,13 +167,29 @@ class DataNormalizer:
             for qualifying in race.get("QualifyingResults", []):
                 normalized_data["qualifying_results"].append(cls.normalize_f1_qualifying_result(qualifying, race_data))
 
+        # Validate normalized data
+        if not validate_pipeline_stage('normalization', normalized_data, platform='f1'):
+            raise ValueError("Normalized F1 data failed validation")
+
         return normalized_data
 
     @staticmethod
     def normalize_typeracer_data(raw_data: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize TypeRacer data into our schema."""
-        # Add TypeRacer normalization logic here when needed
-        pass
+        normalized_data = {
+            "wpm": float(raw_data.get("wpm", 0)),
+            "accuracy": float(raw_data.get("accuracy", 0)),
+            "session_id": raw_data.get("session_id"),
+            "timestamp": datetime.fromtimestamp(raw_data.get("timestamp", 0)),
+            "race_type": raw_data.get("race_type", "practice"),
+            "text_length": int(raw_data.get("text_length", 0))
+        }
+
+        # Validate normalized data
+        if not validate_pipeline_stage('normalization', normalized_data, platform='typeracer'):
+            raise ValueError("Normalized TypeRacer data failed validation")
+
+        return normalized_data
 
 # Example usage:
 # normalizer = DataNormalizer()
