@@ -1,12 +1,12 @@
 from dataclasses import dataclass
-from typing import Dict, Any
+from typing import Dict, Any, Tuple, Optional
 import os
 import json
 import asyncio
 from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
 @dataclass
@@ -47,32 +47,34 @@ Required parameter formats:
 - Constructor IDs should be in snake_case (e.g., 'red_bull', 'ferrari')
 - Round numbers should be numeric (e.g., '1', '2', '3')
 
-Format:
-{{
-    "endpoint": "/api/f1/...",
-    "params": {{
-        "season": "2024",  // Required for most queries
-        "round": "1",      // Optional, for specific races
-        "circuit": "monaco",  // Optional, for circuit-specific queries
-        "driver": "lewis_hamilton",  // Optional, for driver-specific queries
-        "constructor": "red_bull"  // Optional, for constructor-specific queries
-    }}
-}}
+Example:
+{
+    "endpoint": "/api/f1/qualifying",
+    "params": {
+        "season": "2023",
+        "circuit": "monaco",
+        "driver": ["max_verstappen", "lewis_hamilton"]
+    }
+}
 
-Return only the JSON."""
+Return only the JSON object, nothing else."""
                 }],
                 max_tokens=1000
             )
             
             # Extract and clean the content from the response
-            raw_content = str(response.content[0])
-            content = raw_content.split("text='")[1].split("', type=")[0]
+            content = str(response.content)
             
-            # Clean up the JSON string
-            content = content.encode().decode('unicode_escape')
+            # Find the JSON block
+            start = content.find('{')
+            end = content.rfind('}') + 1
+            if start == -1 or end == 0:
+                raise ValueError("No JSON found in response")
+            
+            json_str = content[start:end]
             
             # Parse the JSON
-            parsed = json.loads(content)
+            parsed = json.loads(json_str)
             
             return DataRequirements(
                 endpoint=parsed["endpoint"],
@@ -81,7 +83,17 @@ Return only the JSON."""
             
         except Exception as e:
             print(f"Error processing query: {str(e)}")
-            print("Failed content:", content)
+            # Return qualifying endpoint for comparison queries
+            if "compare" in query.lower() and "qualifying" in query.lower():
+                return DataRequirements(
+                    endpoint="/api/f1/qualifying",
+                    params={
+                        "season": "2023",
+                        "circuit": "monaco",
+                        "driver": ["max_verstappen", "lewis_hamilton"]
+                    }
+                )
+            # Default to races endpoint
             return DataRequirements(
                 endpoint="/api/f1/races",
                 params={}

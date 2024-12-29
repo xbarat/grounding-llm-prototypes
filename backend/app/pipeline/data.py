@@ -149,10 +149,7 @@ class DataPipeline:
                     round_num = self.circuit_rounds_2023.get(circuit_id)
             
             # Build qualifying URL
-            if "driver" in requirements.params and round_num:
-                driver_id = self._get_driver_id(requirements.params["driver"])
-                url = f"{url}/drivers/{driver_id}/qualifying/{round_num}"
-            elif round_num:
+            if round_num:
                 url = f"{url}/{round_num}/qualifying"
             else:
                 url = f"{url}/qualifying"
@@ -183,8 +180,10 @@ class DataPipeline:
         """Clean a name to match API format"""
         return name.lower().replace(" ", "_").replace("-", "_")
     
-    def _get_driver_id(self, driver: str) -> str:
+    def _get_driver_id(self, driver: str | list) -> str | list:
         """Get the correct driver ID for the API"""
+        if isinstance(driver, list):
+            return [self._get_driver_id(d) for d in driver]
         clean_name = self._clean_name(driver)
         return self.driver_ids.get(clean_name, clean_name)
     
