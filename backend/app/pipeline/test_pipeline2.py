@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 import httpx
 import traceback
+from collections import defaultdict
 
 # Add the backend directory to Python path
 backend_dir = str(Path(__file__).parent.parent.parent)
@@ -12,6 +13,48 @@ if backend_dir not in sys.path:
 
 from app.pipeline.data2 import DataPipeline, DataTransformer
 from app.query.processor import QueryProcessor, DataRequirements
+
+class TestMetrics:
+    def __init__(self):
+        self.query_to_json_success = 0
+        self.query_to_json_failure = 0
+        self.json_to_df_success = 0
+        self.json_to_df_failure = 0
+        self.failure_reasons = defaultdict(int)
+        
+    def record_api_success(self):
+        self.query_to_json_success += 1
+        
+    def record_api_failure(self, reason):
+        self.query_to_json_failure += 1
+        self.failure_reasons[f"API: {reason}"] += 1
+        
+    def record_df_success(self):
+        self.json_to_df_success += 1
+        
+    def record_df_failure(self, reason):
+        self.json_to_df_failure += 1
+        self.failure_reasons[f"DataFrame: {reason}"] += 1
+    
+    def print_summary(self):
+        total_api = self.query_to_json_success + self.query_to_json_failure
+        total_df = self.json_to_df_success + self.json_to_df_failure
+        
+        print("\n=== Test Metrics Summary ===")
+        print(f"Query → JSON (API Fetch):")
+        print(f"  Success: {self.query_to_json_success}/{total_api} ({(self.query_to_json_success/total_api*100):.1f}%)")
+        print(f"  Failure: {self.query_to_json_failure}/{total_api} ({(self.query_to_json_failure/total_api*100):.1f}%)")
+        
+        print(f"\nJSON → DataFrame:")
+        print(f"  Success: {self.json_to_df_success}/{total_df} ({(self.json_to_df_success/total_df*100):.1f}%)")
+        print(f"  Failure: {self.json_to_df_failure}/{total_df} ({(self.json_to_df_failure/total_df*100):.1f}%)")
+        
+        if self.failure_reasons:
+            print("\nFailure Reasons:")
+            for reason, count in sorted(self.failure_reasons.items(), key=lambda x: x[1], reverse=True):
+                print(f"  {reason}: {count}")
+
+metrics = TestMetrics()
 
 async def test_integrated_pipeline(query: str, client: httpx.AsyncClient):
     """Test the complete pipeline from natural language to data"""
@@ -28,78 +71,54 @@ async def test_integrated_pipeline(query: str, client: httpx.AsyncClient):
         
         # Step 2: Use the requirements to fetch and process data
         print("\nStep 2: Fetching and processing data...")
-        pipeline = DataPipeline(client=client)  # Pass the shared client
+        pipeline = DataPipeline(client=client)
         response = await pipeline.process(requirements)
         
         if response.success and response.data is not None:
+            metrics.record_api_success()
             df = response.data["results"]
             
-            print("\nData Overview:")
-            print("--------------")
-            print(f"Total rows: {len(df)}")
-            print(f"Columns: {', '.join(df.columns)}")
-            
-            if requirements.endpoint == "/api/f1/qualifying":
-                # Handle qualifying data
-                transformer = DataTransformer()
-                normalized_df = transformer.normalize_qualifying(df)
-                
-                print("\nQualifying Results:")
+            if not df.empty:
+                metrics.record_df_success()
+                print("\nData Overview:")
                 print("--------------")
-                print("Position | Driver | Constructor | Q1 | Q2 | Q3")
-                print("-" * 60)
+                print(f"Total rows: {len(df)}")
+                print(f"Columns: {', '.join(df.columns)}")
                 
-                for _, row in normalized_df.sort_values('position').iterrows():
-                    q1_time = row['Q1'] if pd.notna(row['Q1']) else '-'
-                    q2_time = row['Q2'] if pd.notna(row['Q2']) else '-'
-                    q3_time = row['Q3'] if pd.notna(row['Q3']) else '-'
-                    
-                    print(f"{row['position']:^8} | {row['driver']:<15} | {row['constructor']:<15} | {q1_time:<8} | {q2_time:<8} | {q3_time:<8}")
-                    
-                # Show fastest times
-                print("\nFastest Times:")
-                print("--------------")
-                for session in ['Q1', 'Q2', 'Q3']:
-                    if f'{session}_seconds' in normalized_df.columns:
-                        fastest_time = normalized_df[normalized_df[f'{session}_seconds'].notna()][f'{session}_seconds'].min()
-                        if pd.notna(fastest_time):
-                            fastest_driver = normalized_df[normalized_df[f'{session}_seconds'] == fastest_time]['driver'].iloc[0]
-                            print(f"{session}: {fastest_driver} - {normalized_df[normalized_df[f'{session}_seconds'] == fastest_time][session].iloc[0]}")
-            
-            else:
-                # Handle race/driver data
-                print("\nResults:")
-                print("--------------")
-                print(df.head())
-                
-                if 'driver' in df.columns:
-                    print("\nDriver Statistics:")
-                    print("------------------")
-                    for driver in sorted(df['driver'].unique()):
-                        driver_df = df[df['driver'] == driver]
-                        stats = DataTransformer.calculate_driver_stats(driver_df)
-                        print(f"\n{driver}:")
-                        for stat, value in sorted(stats.items()):
-                            if isinstance(value, float):
-                                print(f"  {stat}: {value:.2f}")
+                if requirements.endpoint == "/api/f1/qualifying":
+                    transformer = DataTransformer()
+                    normalized_df = transformer.normalize_qualifying(df)
+                    if normalized_df.empty:
+                        metrics.record_df_failure("Empty normalized qualifying data")
+                    else:
+                        print("\nQualifying Results:")
+                        print("--------------")
+                        print(normalized_df.head())
+                else:
+                    if 'driver' in df.columns:
+                        print("\nDriver Statistics:")
+                        print("------------------")
+                        for driver in sorted(df['driver'].unique()):
+                            driver_df = df[df['driver'] == driver]
+                            stats = DataTransformer.calculate_driver_stats(driver_df)
+                            if stats:
+                                print(f"\n{driver}:")
+                                for stat, value in sorted(stats.items()):
+                                    if isinstance(value, float):
+                                        print(f"  {stat}: {value:.2f}")
+                                    else:
+                                        print(f"  {stat}: {value}")
                             else:
-                                print(f"  {stat}: {value}")
-                        
-                        if 'season' in df.columns:
-                            print("\n  Season breakdown:")
-                            for season in sorted(driver_df['season'].unique()):
-                                season_df = driver_df[driver_df['season'] == season]
-                                season_stats = DataTransformer.calculate_driver_stats(season_df)
-                                print(f"    {season}:")
-                                print(f"      Wins: {season_stats['wins']}")
-                                print(f"      Podiums: {season_stats['podiums']}")
-                                print(f"      Points: {season_stats['points']}")
-                                print(f"      Avg Position: {season_stats['avg_position']:.2f}")
+                                metrics.record_df_failure("Failed to calculate driver stats")
+            else:
+                metrics.record_df_failure("Empty DataFrame")
         else:
+            metrics.record_api_failure(response.error or "Unknown error")
             print("\nError occurred:")
             print(response.error)
             
     except Exception as e:
+        metrics.record_api_failure(str(e))
         print(f"\nError occurred:")
         print(f"Error details: {str(e)}")
         print(f"Traceback: {traceback.format_exc()}")
@@ -117,30 +136,27 @@ async def run_all_tests(test_queries):
             print("-" * 40)
             await test_integrated_pipeline(query, client)
             print("-" * 80)
+    
+    metrics.print_summary()
 
 if __name__ == "__main__":
-    # Test queries from query_set.txt
+    # Test queries focusing on different aspects
     test_queries = [
-        "How has Max Verstappen's rank changed across the last 10 seasons?",
-        "How does Lewis Hamilton compare to Charles Leclerc in terms of wins, podiums, and points over the last 5 seasons?",
-        "What is Fernando Alonso's performance (wins, fastest laps, podiums) on Circuit Silverstone over the past seasons?",
-        "What were Sergio Pérez's key stats (wins, poles, fastest laps) for each season?",
-        "What is Carlos Sainz Jr.'s average qualifying position across all races in a given season?",
-        "How does Lando Norris perform in wet vs. dry conditions (wins, DNFs, lap times)?",
-        "How does George Russell compare to his teammate in points, podiums, and wins for the last 3 seasons?",
-        "How has Oscar Piastri performed in races with safety car interventions (positions gained/lost)?",
-        "What is Valtteri Bottas's average lap time consistency across all races in a season?",
-        "How often does Charles Leclerc finish in the top 5 after starting outside the top 10?",
-        "How has Lewis Hamilton's rank changed across the last 10 seasons?",
-        "How does Max Verstappen compare to Fernando Alonso in terms of wins, podiums, and points over the last 5 seasons?",
-        "What is Lando Norris's performance (wins, fastest laps, podiums) on Circuit Monaco over the past seasons?",
-        "What were George Russell's key stats (wins, poles, fastest laps) for each season?",
-        "What is Oscar Piastri's average qualifying position across all races in a given season?",
-        "How does Valtteri Bottas perform in wet vs. dry conditions (wins, DNFs, lap times)?",
-        "How does Sergio Pérez compare to his teammate in points, podiums, and wins for the last 3 seasons?",
-        "How has Carlos Sainz Jr. performed in races with safety car interventions (positions gained/lost)?",
-        "What is Charles Leclerc's average lap time consistency across all races in a season?",
-        "How often does Fernando Alonso finish in the top 5 after starting outside the top 10?"
+        # Basic performance queries
+        "How has Max Verstappen performed in the 2023 season?",
+        "What are Lewis Hamilton's stats for 2023?",
+        
+        # Qualifying specific queries
+        "What was Charles Leclerc's qualifying position in Monaco 2023?",
+        "Show me Oscar Piastri's qualifying results for 2023",
+        
+        # Race performance queries
+        "How many podiums did Fernando Alonso get in 2023?",
+        "What's Lando Norris's average finishing position in 2023?",
+        
+        # Circuit specific queries
+        "How did George Russell perform at Silverstone in 2023?",
+        "Show me Carlos Sainz's results at Monza 2023"
     ]
     
     # Run all tests in a single event loop
