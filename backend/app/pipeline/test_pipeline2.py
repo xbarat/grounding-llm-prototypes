@@ -2,6 +2,8 @@ import asyncio
 import sys
 from pathlib import Path
 import pandas as pd
+import httpx
+import traceback
 
 # Add the backend directory to Python path
 backend_dir = str(Path(__file__).parent.parent.parent)
@@ -11,90 +13,110 @@ if backend_dir not in sys.path:
 from app.pipeline.data2 import DataPipeline, DataTransformer
 from app.query.processor import QueryProcessor, DataRequirements
 
-async def test_integrated_pipeline(query: str):
+async def test_integrated_pipeline(query: str, client: httpx.AsyncClient):
     """Test the complete pipeline from natural language to data"""
     
     print("\nTesting integrated pipeline...")
     print(f"Query: {query}")
     
-    # Step 1: Process the natural language query
-    print("\nStep 1: Processing query...")
-    processor = QueryProcessor()
-    requirements = await processor.process_query(query)
-    print(f"Generated requirements: {requirements}")
-    
-    # Step 2: Use the requirements to fetch and process data
-    print("\nStep 2: Fetching and processing data...")
-    pipeline = DataPipeline()
-    response = await pipeline.process(requirements)
-    
-    if response.success and response.data is not None:
-        df = response.data["results"]
+    try:
+        # Step 1: Process the natural language query
+        print("\nStep 1: Processing query...")
+        processor = QueryProcessor()
+        requirements = await processor.process_query(query)
+        print(f"Generated requirements: {requirements}")
         
-        print("\nData Overview:")
-        print("--------------")
-        print(f"Total rows: {len(df)}")
-        print(f"Columns: {', '.join(df.columns)}")
+        # Step 2: Use the requirements to fetch and process data
+        print("\nStep 2: Fetching and processing data...")
+        pipeline = DataPipeline(client=client)  # Pass the shared client
+        response = await pipeline.process(requirements)
         
-        if requirements.endpoint == "/api/f1/qualifying":
-            # Handle qualifying data
-            transformer = DataTransformer()
-            normalized_df = transformer.normalize_qualifying(df)
+        if response.success and response.data is not None:
+            df = response.data["results"]
             
-            print("\nQualifying Results:")
+            print("\nData Overview:")
             print("--------------")
-            print("Position | Driver | Constructor | Q1 | Q2 | Q3")
-            print("-" * 60)
+            print(f"Total rows: {len(df)}")
+            print(f"Columns: {', '.join(df.columns)}")
             
-            for _, row in normalized_df.sort_values('position').iterrows():
-                q1_time = row['Q1'] if pd.notna(row['Q1']) else '-'
-                q2_time = row['Q2'] if pd.notna(row['Q2']) else '-'
-                q3_time = row['Q3'] if pd.notna(row['Q3']) else '-'
+            if requirements.endpoint == "/api/f1/qualifying":
+                # Handle qualifying data
+                transformer = DataTransformer()
+                normalized_df = transformer.normalize_qualifying(df)
                 
-                print(f"{row['position']:^8} | {row['driver']:<15} | {row['constructor']:<15} | {q1_time:<8} | {q2_time:<8} | {q3_time:<8}")
+                print("\nQualifying Results:")
+                print("--------------")
+                print("Position | Driver | Constructor | Q1 | Q2 | Q3")
+                print("-" * 60)
                 
-            # Show fastest times
-            print("\nFastest Times:")
-            print("--------------")
-            for session in ['Q1', 'Q2', 'Q3']:
-                if f'{session}_seconds' in normalized_df.columns:
-                    fastest_time = normalized_df[normalized_df[f'{session}_seconds'].notna()][f'{session}_seconds'].min()
-                    if pd.notna(fastest_time):
-                        fastest_driver = normalized_df[normalized_df[f'{session}_seconds'] == fastest_time]['driver'].iloc[0]
-                        print(f"{session}: {fastest_driver} - {normalized_df[normalized_df[f'{session}_seconds'] == fastest_time][session].iloc[0]}")
-        
-        else:
-            # Handle race/driver data
-            print("\nResults:")
-            print("--------------")
-            print(df.head())
-            
-            if 'driver' in df.columns:
-                print("\nDriver Statistics:")
-                print("------------------")
-                for driver in sorted(df['driver'].unique()):
-                    driver_df = df[df['driver'] == driver]
-                    stats = DataTransformer.calculate_driver_stats(driver_df)
-                    print(f"\n{driver}:")
-                    for stat, value in sorted(stats.items()):
-                        if isinstance(value, float):
-                            print(f"  {stat}: {value:.2f}")
-                        else:
-                            print(f"  {stat}: {value}")
+                for _, row in normalized_df.sort_values('position').iterrows():
+                    q1_time = row['Q1'] if pd.notna(row['Q1']) else '-'
+                    q2_time = row['Q2'] if pd.notna(row['Q2']) else '-'
+                    q3_time = row['Q3'] if pd.notna(row['Q3']) else '-'
                     
-                    if 'season' in df.columns:
-                        print("\n  Season breakdown:")
-                        for season in sorted(driver_df['season'].unique()):
-                            season_df = driver_df[driver_df['season'] == season]
-                            season_stats = DataTransformer.calculate_driver_stats(season_df)
-                            print(f"    {season}:")
-                            print(f"      Wins: {season_stats['wins']}")
-                            print(f"      Podiums: {season_stats['podiums']}")
-                            print(f"      Points: {season_stats['points']}")
-                            print(f"      Avg Position: {season_stats['avg_position']:.2f}")
-    else:
-        print("\nError occurred:")
-        print(response.error)
+                    print(f"{row['position']:^8} | {row['driver']:<15} | {row['constructor']:<15} | {q1_time:<8} | {q2_time:<8} | {q3_time:<8}")
+                    
+                # Show fastest times
+                print("\nFastest Times:")
+                print("--------------")
+                for session in ['Q1', 'Q2', 'Q3']:
+                    if f'{session}_seconds' in normalized_df.columns:
+                        fastest_time = normalized_df[normalized_df[f'{session}_seconds'].notna()][f'{session}_seconds'].min()
+                        if pd.notna(fastest_time):
+                            fastest_driver = normalized_df[normalized_df[f'{session}_seconds'] == fastest_time]['driver'].iloc[0]
+                            print(f"{session}: {fastest_driver} - {normalized_df[normalized_df[f'{session}_seconds'] == fastest_time][session].iloc[0]}")
+            
+            else:
+                # Handle race/driver data
+                print("\nResults:")
+                print("--------------")
+                print(df.head())
+                
+                if 'driver' in df.columns:
+                    print("\nDriver Statistics:")
+                    print("------------------")
+                    for driver in sorted(df['driver'].unique()):
+                        driver_df = df[df['driver'] == driver]
+                        stats = DataTransformer.calculate_driver_stats(driver_df)
+                        print(f"\n{driver}:")
+                        for stat, value in sorted(stats.items()):
+                            if isinstance(value, float):
+                                print(f"  {stat}: {value:.2f}")
+                            else:
+                                print(f"  {stat}: {value}")
+                        
+                        if 'season' in df.columns:
+                            print("\n  Season breakdown:")
+                            for season in sorted(driver_df['season'].unique()):
+                                season_df = driver_df[driver_df['season'] == season]
+                                season_stats = DataTransformer.calculate_driver_stats(season_df)
+                                print(f"    {season}:")
+                                print(f"      Wins: {season_stats['wins']}")
+                                print(f"      Podiums: {season_stats['podiums']}")
+                                print(f"      Points: {season_stats['points']}")
+                                print(f"      Avg Position: {season_stats['avg_position']:.2f}")
+        else:
+            print("\nError occurred:")
+            print(response.error)
+            
+    except Exception as e:
+        print(f"\nError occurred:")
+        print(f"Error details: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+
+async def run_all_tests(test_queries):
+    """Run all tests using a single event loop and shared client"""
+    print("Starting test of all queries...")
+    print(f"Total queries to test: {len(test_queries)}")
+    print("-" * 80)
+    
+    timeout = httpx.Timeout(30.0)
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        for i, query in enumerate(test_queries, 1):
+            print(f"\nTesting query {i}/{len(test_queries)}")
+            print("-" * 40)
+            await test_integrated_pipeline(query, client)
+            print("-" * 80)
 
 if __name__ == "__main__":
     # Test queries from query_set.txt
@@ -121,13 +143,5 @@ if __name__ == "__main__":
         "How often does Fernando Alonso finish in the top 5 after starting outside the top 10?"
     ]
     
-    print("Starting test of all queries...")
-    print(f"Total queries to test: {len(test_queries)}")
-    print("-" * 80)
-    
-    # Run tests with a counter
-    for i, query in enumerate(test_queries, 1):
-        print(f"\nTesting query {i}/{len(test_queries)}")
-        print("-" * 40)
-        asyncio.run(test_integrated_pipeline(query))
-        print("-" * 80) 
+    # Run all tests in a single event loop
+    asyncio.run(run_all_tests(test_queries)) 
