@@ -97,12 +97,37 @@ async def test_integrated_pipeline(query: str):
         print(response.error)
 
 if __name__ == "__main__":
-    # Test queries
+    # Test queries from query_set.txt
     test_queries = [
-        "How has Charles Leclerc performed in qualifying at Monaco in 2023?",
-        "How does Lewis Hamilton compare to Charles Leclerc in terms of wins, podiums, and points over the last 5 seasons?"
+        "How has Max Verstappen's rank changed across the last 10 seasons?",
+        "How does Lewis Hamilton compare to Charles Leclerc in terms of wins, podiums, and points over the last 5 seasons?",
+        "What is Fernando Alonso's performance (wins, fastest laps, podiums) on Circuit Silverstone over the past seasons?",
+        "What were Sergio Pérez's key stats (wins, poles, fastest laps) for each season?",
+        "What is Carlos Sainz Jr.'s average qualifying position across all races in a given season?",
+        "How does Lando Norris perform in wet vs. dry conditions (wins, DNFs, lap times)?",
+        "How does George Russell compare to his teammate in points, podiums, and wins for the last 3 seasons?",
+        "How has Oscar Piastri performed in races with safety car interventions (positions gained/lost)?",
+        "What is Valtteri Bottas's average lap time consistency across all races in a season?",
+        "How often does Charles Leclerc finish in the top 5 after starting outside the top 10?",
+        "How has Lewis Hamilton's rank changed across the last 10 seasons?",
+        "How does Max Verstappen compare to Fernando Alonso in terms of wins, podiums, and points over the last 5 seasons?",
+        "What is Lando Norris's performance (wins, fastest laps, podiums) on Circuit Monaco over the past seasons?",
+        "What were George Russell's key stats (wins, poles, fastest laps) for each season?",
+        "What is Oscar Piastri's average qualifying position across all races in a given season?",
+        "How does Valtteri Bottas perform in wet vs. dry conditions (wins, DNFs, lap times)?",
+        "How does Sergio Pérez compare to his teammate in points, podiums, and wins for the last 3 seasons?",
+        "How has Carlos Sainz Jr. performed in races with safety car interventions (positions gained/lost)?",
+        "What is Charles Leclerc's average lap time consistency across all races in a season?",
+        "How often does Fernando Alonso finish in the top 5 after starting outside the top 10?"
     ]
     
-    # Run tests
-    for query in test_queries:
-        asyncio.run(test_integrated_pipeline(query)) 
+    print("Starting test of all queries...")
+    print(f"Total queries to test: {len(test_queries)}")
+    print("-" * 80)
+    
+    # Run tests with a counter
+    for i, query in enumerate(test_queries, 1):
+        print(f"\nTesting query {i}/{len(test_queries)}")
+        print("-" * 40)
+        asyncio.run(test_integrated_pipeline(query))
+        print("-" * 80) 
