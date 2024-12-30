@@ -104,13 +104,11 @@ async def main():
     processor = QueryProcessor()
     
     # Test different types of queries
-    queries = [
-        "What are the results of the 2024 Australian Grand Prix?",
-        "How did Lewis Hamilton perform in qualifying at Monaco 2023?",
-        "Show me Red Bull's constructor points for 2023"
-    ]
-    
-    for query in queries:
+    while True:
+        query = input("\nEnter your F1 query (or 'quit' to exit): ")
+        if query.lower() == 'quit':
+            break
+            
         print(f"\nProcessing query: {query}")
         requirements = await processor.process_query(query)
         print("Requirements:", requirements)
