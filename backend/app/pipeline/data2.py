@@ -296,16 +296,7 @@ class DataPipeline:
         # Season handling
         kwargs["season"] = self._normalize_param(requirements.params.get("season"))
         
-        # Round handling (if not qualifying with circuit)
-        if not (requirements.endpoint == "/api/f1/qualifying" and requirements.params.get("circuit")):
-            kwargs["round"] = self._normalize_param(requirements.params.get("round"), "last")
-        
-        # Driver handling
-        driver = requirements.params.get("driver")
-        if driver:
-            kwargs["driver"] = get_driver_api_id(self._normalize_param(driver))
-            
-        # Circuit handling
+        # Circuit handling first (to get round number if needed)
         circuit = requirements.params.get("circuit")
         if circuit:
             circuit_id = normalize_circuit_id(self._normalize_param(circuit))
@@ -316,6 +307,17 @@ class DataPipeline:
                 round_num = get_round_number(kwargs["season"], circuit_id)
                 if round_num is not None:
                     kwargs["round"] = str(round_num)
+                    # Update template to include round for qualifying
+                    template = "{base_url}/{season}/{round}/qualifying.json"
+        
+        # Round handling (if not already set and not qualifying with circuit)
+        if "round" not in kwargs and not (requirements.endpoint == "/api/f1/qualifying" and circuit):
+            kwargs["round"] = self._normalize_param(requirements.params.get("round"), "last")
+        
+        # Driver handling
+        driver = requirements.params.get("driver")
+        if driver:
+            kwargs["driver"] = get_driver_api_id(self._normalize_param(driver))
         
         # Constructor handling
         constructor = requirements.params.get("constructor")
