@@ -61,3 +61,37 @@
 - [ ] Create API documentation
 - [ ] Add integration tests
 - [ ] Create usage examples and tutorials 
+
+
+**WEEK 5**
+Test Results Summary
+Query → JSON (API Fetch):
+Success Rate: 100% (8/8 queries)
+All API calls successfully retrieved data
+Some retries were needed (e.g., for Max Verstappen's data) but eventually succeeded
+JSON → DataFrame:
+Success Rate: 87.5% (7/8 queries)
+Failure Rate: 12.5% (1/8 queries)
+Main failure reason: Empty DataFrame (1 case)
+Working Features
+Basic driver performance queries (e.g., Max Verstappen, Lewis Hamilton)
+Season-specific queries
+Driver statistics calculation
+Circuit-specific filtering
+Qualifying data retrieval
+
+Issues Identified
+Data Transformation:
+Empty DataFrame issue with qualifying data for Charles Leclerc at Monaco
+Circuit filtering might be too strict (e.g., exact match vs. partial match)
+API Response Handling:
+Some requests require retries due to connection issues
+Need better handling of chunked responses
+Root Causes
+Circuit Name Matching:
+Current implementation might not handle circuit name variations well
+Need to normalize circuit names or use circuit IDs consistently
+Data Validation:
+Missing validation steps between JSON parsing and DataFrame creation
+No clear error propagation from data transformation to response
+
