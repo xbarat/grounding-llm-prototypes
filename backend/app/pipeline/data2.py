@@ -2,10 +2,19 @@ from typing import Dict, Any, Optional
 import httpx
 import asyncio
 import traceback
+import json
 from dataclasses import dataclass
 import pandas as pd
 from functools import lru_cache
 from app.query.processor import DataRequirements
+from app.pipeline.mappings import (
+    DRIVER_IDS,
+    CIRCUIT_MAPPINGS,
+    get_round_number,
+    normalize_circuit_id,
+    get_circuit_api_id,
+    get_driver_api_id
+)
 
 @dataclass
 class DataResponse:
@@ -231,31 +240,9 @@ class DataPipeline:
             "/api/f1/standings/constructors": "{base_url}/{season}/{round}/constructorStandings.json"
         }
         
-        # Driver ID mapping
-        self.driver_ids = {
-            "lewis_hamilton": "hamilton",
-            "max_verstappen": "max_verstappen",
-            "charles_leclerc": "leclerc",
-            "sergio_perez": "perez",
-            "carlos_sainz": "sainz",
-            "george_russell": "russell",
-            "lando_norris": "norris",
-            "fernando_alonso": "alonso",
-            "oscar_piastri": "piastri",
-            "valtteri_bottas": "bottas"
-        }
-        
-        # Circuit ID and name mapping
-        self.circuit_mappings = {
-            "monaco": ["monaco", "monte carlo", "monte-carlo"],
-            "monza": ["monza", "autodromo nazionale monza", "italian grand prix"],
-            "silverstone": ["silverstone", "british grand prix"],
-            "spa": ["spa", "spa-francorchamps", "belgian grand prix"],
-            "suzuka": ["suzuka", "japanese grand prix"],
-            "melbourne": ["melbourne", "albert park", "australian grand prix"],
-            "barcelona": ["barcelona", "catalunya", "spanish grand prix"],
-            "singapore": ["singapore", "marina bay"]
-        }
+        # Use mappings from the mappings module
+        self.driver_ids = DRIVER_IDS
+        self.circuit_mappings = CIRCUIT_MAPPINGS
 
     def _validate_response_data(self, json_data: dict, endpoint: str) -> tuple[bool, Optional[str]]:
         """Validate the JSON response data structure"""
@@ -297,47 +284,49 @@ class DataPipeline:
 
     def _build_url(self, requirements: DataRequirements) -> str:
         """Build URL dynamically using endpoint templates"""
-        template = self.endpoint_templates.get(requirements.endpoint)
-        if not template:
-            raise ValueError(f"Unsupported endpoint: {requirements.endpoint}")
+        if requirements.endpoint not in self.endpoint_templates:
+            raise ValueError(f"Unknown endpoint: {requirements.endpoint}")
+            
+        # Get template
+        template = self.endpoint_templates[requirements.endpoint]
         
-        params = {}
+        # Build kwargs from requirements
+        kwargs = {}
         
         # Season handling
-        params["season"] = self._normalize_param(requirements.params.get("season"))
+        kwargs["season"] = self._normalize_param(requirements.params.get("season"))
         
-        # Round handling
-        if requirements.endpoint == "/api/f1/qualifying" and requirements.params.get("circuit"):
-            # For qualifying with circuit, we need to get all races first
-            template = "{base_url}/{season}/qualifying.json"
-        else:
-            params["round"] = self._normalize_param(requirements.params.get("round"), "last")
+        # Round handling (if not qualifying with circuit)
+        if not (requirements.endpoint == "/api/f1/qualifying" and requirements.params.get("circuit")):
+            kwargs["round"] = self._normalize_param(requirements.params.get("round"), "last")
         
         # Driver handling
         driver = requirements.params.get("driver")
         if driver:
-            params["driver"] = self.driver_ids.get(
-                self._normalize_param(driver), 
-                self._normalize_param(driver)
-            )
-        
+            kwargs["driver"] = get_driver_api_id(self._normalize_param(driver))
+            
         # Circuit handling
         circuit = requirements.params.get("circuit")
         if circuit:
-            normalized_circuit = self._normalize_circuit_name(self._normalize_param(circuit))
-            params["circuit"] = normalized_circuit if normalized_circuit else self._normalize_param(circuit)
+            circuit_id = normalize_circuit_id(self._normalize_param(circuit))
+            kwargs["circuit"] = get_circuit_api_id(circuit_id)
+            
+            # Get round number for qualifying with circuit
+            if requirements.endpoint == "/api/f1/qualifying" and kwargs.get("season"):
+                round_num = get_round_number(kwargs["season"], circuit_id)
+                if round_num is not None:
+                    kwargs["round"] = str(round_num)
         
         # Constructor handling
         constructor = requirements.params.get("constructor")
         if constructor:
-            params["constructor"] = self._normalize_param(constructor)
-        
+            kwargs["constructor"] = self._normalize_param(constructor)
+            
         # Build URL with valid parameters
         url = template.format(
             base_url=self.base_url,
-            **{k: v for k, v in params.items() if v is not None}
+            **{k: v for k, v in kwargs.items() if v is not None}
         )
-        
         return url
 
     def _json_to_dataframe(self, json_data: dict, endpoint: str) -> pd.DataFrame:
@@ -429,26 +418,37 @@ class DataPipeline:
         for attempt in range(max_retries):
             try:
                 print(f"\nAttempt {attempt + 1} for {url}")
-                response = await client.get(url, timeout=30.0, follow_redirects=True)
-                print(f"Status: {response.status_code}")
-                print(f"Headers: {dict(response.headers)}")
-                
-                if response.status_code == 200:
-                    try:
-                        data = response.json()
-                        print("Successfully parsed JSON response")
-                        return data
-                    except Exception as e:
-                        print(f"Error parsing JSON: {str(e)}")
-                        print(f"Response text: {response.text[:200]}...")
-                elif response.status_code == 429:  # Rate limit
-                    print("Rate limited, backing off...")
-                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
-                    continue
-                else:
-                    print(f"Request failed with status {response.status_code}")
-                    print(f"Response text: {response.text[:200]}...")
-                    return None
+                # Use streaming response for large payloads
+                async with client.stream('GET', url) as response:
+                    print(f"Status: {response.status_code}")
+                    print(f"Headers: {dict(response.headers)}")
+                    
+                    if response.status_code == 200:
+                        # Accumulate chunks
+                        chunks = []
+                        async for chunk in response.aiter_bytes():
+                            chunks.append(chunk)
+                        
+                        # Combine chunks and parse JSON
+                        try:
+                            content = b''.join(chunks)
+                            data = json.loads(content)
+                            print("Successfully parsed JSON response")
+                            print(f"Response size: {len(content)} bytes")
+                            return data
+                        except Exception as e:
+                            print(f"Error parsing JSON: {str(e)}")
+                            print(f"Response size: {len(content)} bytes")
+                            if attempt < max_retries - 1:
+                                await asyncio.sleep(2 ** attempt)
+                                continue
+                    elif response.status_code == 429:  # Rate limit
+                        print("Rate limited, backing off...")
+                        await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                        continue
+                    else:
+                        print(f"Request failed with status {response.status_code}")
+                        return None
             except Exception as e:
                 print(f"Request error: {str(e)}")
                 if attempt < max_retries - 1:
