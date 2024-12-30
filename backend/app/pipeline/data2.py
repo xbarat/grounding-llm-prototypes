@@ -111,8 +111,9 @@ class DataTransformer:
 class DataPipeline:
     """Handles data fetching and processing for F1 data"""
 
-    def __init__(self, base_url: str = "http://ergast.com/api/f1"):
+    def __init__(self, base_url: str = "http://ergast.com/api/f1", client: Optional[httpx.AsyncClient] = None):
         self.base_url = base_url.rstrip('/')
+        self.client = client
         self.endpoint_templates = {
             "/api/f1/races": "{base_url}/{season}/results.json",
             "/api/f1/qualifying": "{base_url}/{season}/circuits/{circuit}/qualifying.json",
@@ -331,31 +332,12 @@ class DataPipeline:
                 drivers = [drivers]
 
             # Create all combinations of seasons and drivers
-            timeout = httpx.Timeout(30.0)
-            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-                urls = []
-
-                for season in seasons:
-                    for driver in drivers:
-                        single_req = DataRequirements(
-                            endpoint=requirements.endpoint,
-                            params={**requirements.params, "season": season, "driver": driver}
-                        )
-                        url = self._build_url(single_req)
-                        print(f"\nProcessing request for {driver} in {season}")
-                        print(f"URL: {url}")
-                        urls.append(url)
-
-                # Process URLs sequentially to avoid overwhelming the API
-                for url in urls:
-                    result = await self._fetch_with_retry(client, url)
-                    if result:
-                        df = self._json_to_dataframe(result, requirements.endpoint)
-                        if not df.empty:
-                            all_dataframes.append(df)
-                            print(f"Successfully processed data from {url}")
-                        else:
-                            print(f"No data in response from {url}")
+            if self.client is None:
+                timeout = httpx.Timeout(30.0)
+                async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                    await self._process_requests(requirements, seasons, drivers, client, all_dataframes)
+            else:
+                await self._process_requests(requirements, seasons, drivers, self.client, all_dataframes)
 
             if not all_dataframes:
                 return DataResponse(success=False, error="No data retrieved from any request")
@@ -380,6 +362,31 @@ class DataPipeline:
                 success=False,
                 error=f"Error processing data: {str(e)}"
             )
+
+    async def _process_requests(self, requirements: DataRequirements, seasons: list, drivers: list, client: httpx.AsyncClient, all_dataframes: list):
+        """Helper method to process all requests for given seasons and drivers"""
+        urls = []
+        for season in seasons:
+            for driver in drivers:
+                single_req = DataRequirements(
+                    endpoint=requirements.endpoint,
+                    params={**requirements.params, "season": season, "driver": driver}
+                )
+                url = self._build_url(single_req)
+                print(f"\nProcessing request for {driver} in {season}")
+                print(f"URL: {url}")
+                urls.append(url)
+
+        # Process URLs sequentially to avoid overwhelming the API
+        for url in urls:
+            result = await self._fetch_with_retry(client, url)
+            if result:
+                df = self._json_to_dataframe(result, requirements.endpoint)
+                if not df.empty:
+                    all_dataframes.append(df)
+                    print(f"Successfully processed data from {url}")
+                else:
+                    print(f"No data in response from {url}")
 
 # Example usage
 async def main():
