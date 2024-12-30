@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, List, Union
 import os
 import json
 import asyncio
-from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -19,91 +19,85 @@ class QueryProcessor:
     """Maps natural language queries to F1 data requirements"""
     
     def __init__(self):
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
-        self.client = AsyncAnthropic(api_key=api_key)
+            raise ValueError("OPENAI_API_KEY environment variable is not set")
+        self.client = AsyncOpenAI(api_key=api_key)
 
     async def process_query(self, query: str) -> DataRequirements:
         """
         Maps a user query to F1 data requirements.
-        Returns which endpoint to query and what parameters to use.
+        Returns a DataRequirements object with endpoint and parameters.
         """
         try:
-            response = await self.client.messages.create(
-                model="claude-3-opus-20240229",
+            print("\nSending request to GPT-4O Mini...")
+            response = await self.client.chat.completions.create(
+                model="gpt-4o-mini",
                 messages=[{
                     "role": "user",
-                    "content": f"""Given this F1-related query: "{query}"
+                    "content": """Extract relevant F1-related information from the given query to create a structured JSON object.
 
-Return a JSON object specifying:
-1. Which F1 API endpoint to use (one of: /api/f1/races, /api/f1/qualifying, /api/f1/drivers, /api/f1/constructors, /api/f1/laps, /api/f1/pitstops)
-2. What parameters to include in the API call
-
-Required parameter formats:
-- Season/year should be in params as 'season'
-- Circuit names should be in snake_case (e.g., 'monaco', 'silverstone')
-- Driver IDs should be in snake_case (e.g., 'lewis_hamilton', 'max_verstappen')
-- Constructor IDs should be in snake_case (e.g., 'red_bull', 'ferrari')
-- Round numbers should be numeric (e.g., '1', '2', '3')
-
-Example:
+The response must adhere to this exact JSON structure:
 {
-    "endpoint": "/api/f1/qualifying",
+    "endpoint": string,  // One of: /api/f1/races, /api/f1/qualifying, /api/f1/drivers, /api/f1/constructors, /api/f1/laps, /api/f1/pitstops
     "params": {
-        "season": "2023",
-        "circuit": "monaco",
-        "driver": ["max_verstappen", "lewis_hamilton"]
+        "season": string | string[],  // Optional, year like "2023" or array of years
+        "circuit": string,            // Optional, snake_case like "monaco"
+        "driver": string | string[],  // Optional, snake_case like "max_verstappen"
+        "constructor": string,        // Optional, snake_case like "red_bull"
+        "round": string               // Optional, numeric like "1"
     }
 }
 
-Return only the JSON object, nothing else."""
+Query: """ + query
                 }],
-                max_tokens=1000
+                temperature=0,
+                response_format={ "type": "json_object" }
             )
             
-            # Extract and clean the content from the response
-            content = str(response.content)
+            print("\nReceived response from GPT-4O Mini")
+            content = response.choices[0].message.content
+            if content is None:
+                raise ValueError("No content in response")
+                
+            print("\nParsing response...")
+            parsed = json.loads(content)
             
-            # Find the JSON block
-            start = content.find('{')
-            end = content.rfind('}') + 1
-            if start == -1 or end == 0:
-                raise ValueError("No JSON found in response")
+            # Validate response structure
+            if not isinstance(parsed, dict):
+                raise ValueError("Response is not a JSON object")
+            if "endpoint" not in parsed:
+                raise ValueError("Missing 'endpoint' in response")
+            if "params" not in parsed:
+                raise ValueError("Missing 'params' in response")
             
-            json_str = content[start:end]
-            
-            # Parse the JSON
-            parsed = json.loads(json_str)
-            
-            return DataRequirements(
+            # Create DataRequirements object
+            requirements = DataRequirements(
                 endpoint=parsed["endpoint"],
                 params=parsed["params"]
             )
             
+            print("\nProcessed requirements:", requirements)
+            return requirements
+            
         except Exception as e:
-            print(f"Error processing query: {str(e)}")
-            # Return qualifying endpoint for comparison queries
-            if "compare" in query.lower() and "qualifying" in query.lower():
-                return DataRequirements(
-                    endpoint="/api/f1/qualifying",
-                    params={
-                        "season": "2023",
-                        "circuit": "monaco",
-                        "driver": ["max_verstappen", "lewis_hamilton"]
-                    }
-                )
-            # Default to races endpoint
+            print(f"\nError processing query: {str(e)}")
+            # Return a safe default focused on the driver if we can extract it
+            default_driver = query.lower().split()[0] if query else "unknown"
             return DataRequirements(
-                endpoint="/api/f1/races",
-                params={}
+                endpoint="/api/f1/drivers",
+                params={"driver": default_driver}
             )
 
-# Test queries
 async def main():
     processor = QueryProcessor()
     
-    # Test different types of queries
+    print("\nF1 Query Processor")
+    print("------------------")
+    print("Type your questions about F1 data and get structured API requirements.")
+    print("Example: 'How has Max Verstappen's rank changed across the last 10 seasons?'")
+    print("Type 'quit' to exit.\n")
+    
     while True:
         query = input("\nEnter your F1 query (or 'quit' to exit): ")
         if query.lower() == 'quit':
@@ -111,7 +105,9 @@ async def main():
             
         print(f"\nProcessing query: {query}")
         requirements = await processor.process_query(query)
-        print("Requirements:", requirements)
+        print("\nAPI Requirements:")
+        print(f"Endpoint: {requirements.endpoint}")
+        print(f"Parameters: {json.dumps(requirements.params, indent=2)}")
 
 if __name__ == "__main__":
     asyncio.run(main())
