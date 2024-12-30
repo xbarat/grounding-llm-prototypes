@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional
 import httpx
 import asyncio
+import traceback
 from dataclasses import dataclass
 import pandas as pd
 from functools import lru_cache
@@ -61,6 +62,10 @@ class DataTransformer:
     def normalize_qualifying(self, df: pd.DataFrame) -> pd.DataFrame:
         """Normalize qualifying data"""
         try:
+            print("\nQualifying Data Debug:")
+            print(f"Input DataFrame columns: {df.columns.tolist()}")
+            print(f"Input DataFrame shape: {df.shape}")
+            
             # Convert position to numeric
             if 'position' in df.columns:
                 df['position'] = pd.to_numeric(df['position'], errors='coerce')
@@ -68,10 +73,12 @@ class DataTransformer:
             # Create driver name column
             if 'Driver.givenName' in df.columns and 'Driver.familyName' in df.columns:
                 df['driver'] = df['Driver.givenName'] + ' ' + df['Driver.familyName']
+                print(f"Unique drivers: {df['driver'].unique().tolist()}")
             
             # Create race column
             if 'raceName' in df.columns:
                 df['race'] = df['raceName']
+                print(f"Unique races: {df['race'].unique().tolist()}")
             
             # Convert qualifying times to timedelta
             for col in ['Q1', 'Q2', 'Q3']:
@@ -111,13 +118,20 @@ class DataTransformer:
                 'Circuit.name': 'circuit'
             }
             
-            df = df[[col for col in columns.keys() if col in df.columns]]
+            available_cols = [col for col in columns.keys() if col in df.columns]
+            print(f"Available columns for selection: {available_cols}")
+            
+            df = df[available_cols]
             df = df.rename(columns=columns)
+            
+            print(f"Output DataFrame shape: {df.shape}")
+            print(f"Output DataFrame columns: {df.columns.tolist()}")
             
             return df
             
         except Exception as e:
             print(f"Error normalizing qualifying data: {str(e)}")
+            print(f"Traceback: {traceback.format_exc()}")
             return pd.DataFrame()
 
     def normalize_lap_times(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -231,17 +245,49 @@ class DataPipeline:
             "valtteri_bottas": "bottas"
         }
         
-        # Circuit ID mapping
-        self.circuit_ids = {
-            "monaco": "monaco",
-            "monza": "monza",
-            "silverstone": "silverstone",
-            "spa": "spa",
-            "suzuka": "suzuka",
-            "melbourne": "albert_park",
-            "barcelona": "catalunya",
-            "singapore": "marina_bay"
+        # Circuit ID and name mapping
+        self.circuit_mappings = {
+            "monaco": ["monaco", "monte carlo", "monte-carlo"],
+            "monza": ["monza", "autodromo nazionale monza", "italian grand prix"],
+            "silverstone": ["silverstone", "british grand prix"],
+            "spa": ["spa", "spa-francorchamps", "belgian grand prix"],
+            "suzuka": ["suzuka", "japanese grand prix"],
+            "melbourne": ["melbourne", "albert park", "australian grand prix"],
+            "barcelona": ["barcelona", "catalunya", "spanish grand prix"],
+            "singapore": ["singapore", "marina bay"]
         }
+
+    def _validate_response_data(self, json_data: dict, endpoint: str) -> tuple[bool, Optional[str]]:
+        """Validate the JSON response data structure"""
+        if not json_data or 'MRData' not in json_data:
+            return False, "Missing MRData in response"
+            
+        mrdata = json_data['MRData']
+        table_key = next((k for k in mrdata.keys() if k.endswith('Table')), None)
+        
+        if not table_key or table_key not in mrdata:
+            return False, f"Missing table data in response. Available keys: {list(mrdata.keys())}"
+            
+        table_data = mrdata[table_key]
+        if not isinstance(table_data, dict):
+            return False, f"Invalid table data type: {type(table_data)}"
+            
+        races = table_data.get('Races', [])
+        if not races:
+            return False, "No race data found"
+            
+        return True, None
+
+    def _normalize_circuit_name(self, circuit: str) -> str:
+        """Normalize circuit name for consistent matching"""
+        if not circuit:
+            return ""
+            
+        circuit = circuit.lower().strip()
+        for circuit_id, variants in self.circuit_mappings.items():
+            if circuit in variants or any(variant in circuit for variant in variants):
+                return circuit_id
+        return circuit
 
     def _normalize_param(self, param, default="current"):
         """Normalize parameter values"""
@@ -261,7 +307,11 @@ class DataPipeline:
         params["season"] = self._normalize_param(requirements.params.get("season"))
         
         # Round handling
-        params["round"] = self._normalize_param(requirements.params.get("round"), "last")
+        if requirements.endpoint == "/api/f1/qualifying" and requirements.params.get("circuit"):
+            # For qualifying with circuit, we need to get all races first
+            template = "{base_url}/{season}/qualifying.json"
+        else:
+            params["round"] = self._normalize_param(requirements.params.get("round"), "last")
         
         # Driver handling
         driver = requirements.params.get("driver")
@@ -274,10 +324,8 @@ class DataPipeline:
         # Circuit handling
         circuit = requirements.params.get("circuit")
         if circuit:
-            params["circuit"] = self.circuit_ids.get(
-                self._normalize_param(circuit), 
-                self._normalize_param(circuit)
-            )
+            normalized_circuit = self._normalize_circuit_name(self._normalize_param(circuit))
+            params["circuit"] = normalized_circuit if normalized_circuit else self._normalize_param(circuit)
         
         # Constructor handling
         constructor = requirements.params.get("constructor")
@@ -294,18 +342,16 @@ class DataPipeline:
 
     def _json_to_dataframe(self, json_data: dict, endpoint: str) -> pd.DataFrame:
         """Convert JSON response to DataFrame with proper handling of different endpoints."""
-        if not json_data or 'MRData' not in json_data:
-            print("No MRData in response")
+        # Validate response data
+        is_valid, error_msg = self._validate_response_data(json_data, endpoint)
+        if not is_valid:
+            print(f"Invalid response data: {error_msg}")
             return pd.DataFrame()
 
         mrdata = json_data['MRData']
         table_key = next((k for k in mrdata.keys() if k.endswith('Table')), None)
-        
-        if not table_key or table_key not in mrdata:
-            print(f"No table key found in MRData. Available keys: {list(mrdata.keys())}")
-            return pd.DataFrame()
-
         table_data = mrdata[table_key]
+        
         if not isinstance(table_data, dict):
             print(f"Table data is not a dictionary: {type(table_data)}")
             return pd.DataFrame()
@@ -315,10 +361,10 @@ class DataPipeline:
             races_data = table_data.get('Races', [])
             for race in races_data:
                 qualifying_results = race.get('QualifyingResults', [])
+                circuit = race.get('Circuit', {})
                 for result in qualifying_results:
                     driver = result.get('Driver', {})
                     constructor = result.get('Constructor', {})
-                    circuit = race.get('Circuit', {})
                     races.append({
                         'raceName': race.get('raceName', ''),
                         'season': race.get('season', ''),
@@ -432,6 +478,74 @@ class DataPipeline:
         except (ValueError, IndexError):
             return None
 
+    def _validate_dataframe_columns(self, df: pd.DataFrame, endpoint: str) -> tuple[bool, Optional[str]]:
+        """Validate DataFrame columns based on endpoint requirements"""
+        if df.empty:
+            return True, None  # Empty DataFrame validation is handled elsewhere
+            
+        required_columns = {
+            "/api/f1/qualifying": ["race", "season", "driver", "position"],
+            "/api/f1/drivers": ["race", "season", "driver", "position", "points"],
+            "/api/f1/laps": ["race", "season", "driver", "lap", "time"],
+            "/api/f1/constructors": ["race", "season", "constructor", "points"]
+        }
+        
+        if endpoint not in required_columns:
+            return True, None  # No specific requirements for this endpoint
+            
+        missing = [col for col in required_columns[endpoint] if col not in df.columns]
+        if missing:
+            return False, f"Missing required columns: {missing}"
+            
+        return True, None
+
+    async def _retry_empty_results(self, url: str, endpoint: str, client: httpx.AsyncClient, max_retries: int = 2) -> pd.DataFrame:
+        """Retry fetching and processing data for empty results"""
+        for attempt in range(max_retries):
+            try:
+                result = await self._fetch_with_retry(client, url)
+                if result:
+                    df = self._json_to_dataframe(result, endpoint)
+                    if not df.empty:
+                        # Validate DataFrame columns
+                        is_valid, error_msg = self._validate_dataframe_columns(df, endpoint)
+                        if is_valid:
+                            return df
+                        print(f"DataFrame validation failed: {error_msg}")
+                await asyncio.sleep(1)  # Wait before retry
+            except Exception as e:
+                print(f"Retry attempt {attempt + 1} failed: {str(e)}")
+        return pd.DataFrame()
+
+    async def _process_requests(self, requirements: DataRequirements, seasons: list, drivers: list, client: httpx.AsyncClient, all_dataframes: list):
+        """Helper method to process all requests for given seasons and drivers"""
+        urls = []
+        for season in seasons:
+            for driver in drivers:
+                single_req = DataRequirements(
+                    endpoint=requirements.endpoint,
+                    params={**requirements.params, "season": season, "driver": driver}
+                )
+                url = self._build_url(single_req)
+                print(f"\nProcessing request for {driver} in {season}")
+                print(f"URL: {url}")
+                urls.append(url)
+
+        # Process URLs sequentially to avoid overwhelming the API
+        for url in urls:
+            result = await self._fetch_with_retry(client, url)
+            if result:
+                df = self._json_to_dataframe(result, requirements.endpoint)
+                if df.empty:
+                    print(f"Initial response empty, retrying for {url}")
+                    df = await self._retry_empty_results(url, requirements.endpoint, client)
+                
+                if not df.empty:
+                    all_dataframes.append(df)
+                    print(f"Successfully processed data from {url}")
+                else:
+                    print(f"No data in response from {url}")
+
     async def process(self, requirements: DataRequirements) -> DataResponse:
         """Process data requirements and fetch data from the F1 API"""
         try:
@@ -466,6 +580,31 @@ class DataPipeline:
             if requirements.endpoint == "/api/f1/qualifying":
                 transformer = DataTransformer()
                 normalized_df = transformer.normalize_qualifying(combined_df)
+                
+                # Filter by circuit if specified
+                if requirements.params.get("circuit"):
+                    circuit = requirements.params["circuit"]
+                    normalized_circuit = self._normalize_circuit_name(circuit)
+                    if 'circuit' in normalized_df.columns:
+                        normalized_df = normalized_df[
+                            normalized_df['circuit'].str.contains(
+                                normalized_circuit if normalized_circuit else circuit, 
+                                case=False, 
+                                na=False
+                            )
+                        ]
+                
+                # Filter by driver if specified
+                if requirements.params.get("driver"):
+                    driver = requirements.params["driver"]
+                    if 'driver' in normalized_df.columns:
+                        normalized_df = normalized_df[
+                            normalized_df['driver'].str.contains(
+                                driver.replace('_', ' '), 
+                                case=False, 
+                                na=False
+                            )
+                        ]
             elif requirements.endpoint == "/api/f1/laps":
                 transformer = DataTransformer()
                 normalized_df = transformer.normalize_lap_times(combined_df)
@@ -473,8 +612,13 @@ class DataPipeline:
                 transformer = DataTransformer()
                 normalized_df = transformer.normalize_driver_performance(combined_df)
             
-            # Filter by circuit if specified
-            if requirements.params.get("circuit"):
+            # Validate DataFrame after normalization
+            is_valid, error_msg = self._validate_dataframe_columns(normalized_df, requirements.endpoint)
+            if not is_valid:
+                return DataResponse(success=False, error=error_msg)
+            
+            # Filter by circuit for non-qualifying endpoints
+            if requirements.endpoint != "/api/f1/qualifying" and requirements.params.get("circuit"):
                 circuit = requirements.params["circuit"]
                 if 'circuit' in normalized_df.columns:
                     normalized_df = normalized_df[normalized_df['circuit'].str.contains(circuit, case=False, na=False)]
@@ -492,31 +636,6 @@ class DataPipeline:
                 success=False,
                 error=f"Error processing data: {str(e)}"
             )
-
-    async def _process_requests(self, requirements: DataRequirements, seasons: list, drivers: list, client: httpx.AsyncClient, all_dataframes: list):
-        """Helper method to process all requests for given seasons and drivers"""
-        urls = []
-        for season in seasons:
-            for driver in drivers:
-                single_req = DataRequirements(
-                    endpoint=requirements.endpoint,
-                    params={**requirements.params, "season": season, "driver": driver}
-                )
-                url = self._build_url(single_req)
-                print(f"\nProcessing request for {driver} in {season}")
-                print(f"URL: {url}")
-                urls.append(url)
-
-        # Process URLs sequentially to avoid overwhelming the API
-        for url in urls:
-            result = await self._fetch_with_retry(client, url)
-            if result:
-                df = self._json_to_dataframe(result, requirements.endpoint)
-                if not df.empty:
-                    all_dataframes.append(df)
-                    print(f"Successfully processed data from {url}")
-                else:
-                    print(f"No data in response from {url}")
 
 # Example usage
 async def main():
