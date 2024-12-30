@@ -293,108 +293,90 @@ class DataPipeline:
         return url
 
     def _json_to_dataframe(self, json_data: dict, endpoint: str) -> pd.DataFrame:
-        """Convert JSON response to Pandas DataFrame based on the endpoint"""
-        try:
-            table_mapping = {
-                "/api/f1/drivers": ("RaceTable", "Races"),
-                "/api/f1/qualifying": ("RaceTable", "Races"),
-                "/api/f1/races": ("RaceTable", "Races"),
-                "/api/f1/constructors": ("ConstructorTable", "Constructors"),
-                "/api/f1/circuits": ("CircuitTable", "Circuits"),
-                "/api/f1/laps": ("RaceTable", "Races"),
-                "/api/f1/pitstops": ("RaceTable", "Races"),
-                "/api/f1/status": ("StatusTable", "Status"),
-                "/api/f1/standings/drivers": ("StandingsTable", "StandingsLists"),
-                "/api/f1/standings/constructors": ("StandingsTable", "StandingsLists")
-            }
-            
-            if endpoint not in table_mapping:
-                raise ValueError(f"Unsupported endpoint for DataFrame conversion: {endpoint}")
-                
-            table_key, data_key = table_mapping[endpoint]
-            data = json_data.get('MRData', {}).get(table_key, {}).get(data_key, [])
-            
-            if not data:
-                print(f"No data found for endpoint {endpoint}")
-                print("Response structure:", json_data.get('MRData', {}).keys())
-                return pd.DataFrame()
-            
-            # Extract races from the response for race-related endpoints
-            if endpoint in ["/api/f1/drivers", "/api/f1/qualifying", "/api/f1/races", "/api/f1/laps", "/api/f1/pitstops"]:
-                flattened_data = []
-                for race in data:
-                    race_info = {
-                        'season': race.get('season'),
-                        'round': race.get('round'),
-                        'raceName': race.get('raceName'),
-                        'Circuit.name': race.get('Circuit', {}).get('circuitName'),
-                        'Circuit.location': race.get('Circuit', {}).get('Location', {}).get('locality')
-                    }
-                    
-                    # Handle different result types
-                    results_key = 'Results'
-                    if endpoint == "/api/f1/qualifying":
-                        results_key = 'QualifyingResults'
-                    elif endpoint == "/api/f1/laps":
-                        results_key = 'Laps'
-                    elif endpoint == "/api/f1/pitstops":
-                        results_key = 'PitStops'
-                    
-                    results = race.get(results_key, [])
-                    if results:
-                        for result in results:
-                            result_info = race_info.copy()
-                            
-                            # Common fields for all result types
-                            result_info.update({
-                                'position': result.get('position'),
-                                'Driver.familyName': result.get('Driver', {}).get('familyName'),
-                                'Driver.givenName': result.get('Driver', {}).get('givenName'),
-                                'Constructor.name': result.get('Constructor', {}).get('name')
-                            })
-                            
-                            # Add result type specific fields
-                            if endpoint == "/api/f1/qualifying":
-                                result_info.update({
-                                    'Q1': result.get('Q1', ''),
-                                    'Q2': result.get('Q2', ''),
-                                    'Q3': result.get('Q3', '')
-                                })
-                            elif endpoint == "/api/f1/laps":
-                                result_info.update({
-                                    'lap': result.get('number'),
-                                    'time': result.get('time'),
-                                    'avgSpeed': result.get('avgSpeed', {}).get('speed')
-                                })
-                            else:  # Regular race results
-                                result_info.update({
-                                    'points': result.get('points'),
-                                    'status': result.get('status'),
-                                    'laps': result.get('laps'),
-                                    'grid': result.get('grid'),
-                                    'fastestLap': result.get('FastestLap', {}).get('Time', {}).get('time')
-                                })
-                            
-                            flattened_data.append(result_info)
-                
-                if not flattened_data:
-                    print(f"No {results_key} found in races")
-                    return pd.DataFrame()
-                
-                df = pd.DataFrame(flattened_data)
-                
-                # Convert position to numeric
-                df['position'] = pd.to_numeric(df['position'], errors='coerce')
-                
-                return df
-            
-            # For non-race endpoints, directly normalize the data
-            return pd.json_normalize(data)
-            
-        except Exception as e:
-            print(f"Error converting JSON to DataFrame: {str(e)}")
-            print("JSON data structure:", json_data.get('MRData', {}).keys())
+        """Convert JSON response to DataFrame with proper handling of different endpoints."""
+        if not json_data or 'MRData' not in json_data:
+            print("No MRData in response")
             return pd.DataFrame()
+
+        mrdata = json_data['MRData']
+        table_key = next((k for k in mrdata.keys() if k.endswith('Table')), None)
+        
+        if not table_key or table_key not in mrdata:
+            print(f"No table key found in MRData. Available keys: {list(mrdata.keys())}")
+            return pd.DataFrame()
+
+        table_data = mrdata[table_key]
+        if not isinstance(table_data, dict):
+            print(f"Table data is not a dictionary: {type(table_data)}")
+            return pd.DataFrame()
+
+        races = []
+        if endpoint == '/api/f1/qualifying':
+            races_data = table_data.get('Races', [])
+            for race in races_data:
+                qualifying_results = race.get('QualifyingResults', [])
+                for result in qualifying_results:
+                    driver = result.get('Driver', {})
+                    constructor = result.get('Constructor', {})
+                    circuit = race.get('Circuit', {})
+                    races.append({
+                        'raceName': race.get('raceName', ''),
+                        'season': race.get('season', ''),
+                        'round': race.get('round', ''),
+                        'Driver.givenName': driver.get('givenName', ''),
+                        'Driver.familyName': driver.get('familyName', ''),
+                        'position': result.get('position', ''),
+                        'Q1': result.get('Q1', ''),
+                        'Q2': result.get('Q2', ''),
+                        'Q3': result.get('Q3', ''),
+                        'Constructor.name': constructor.get('name', ''),
+                        'Circuit.name': circuit.get('circuitName', '')
+                    })
+        elif endpoint == '/api/f1/laps':
+            races_data = table_data.get('Races', [])
+            for race in races_data:
+                laps = race.get('Laps', [])
+                for lap in laps:
+                    for timing in lap.get('Timings', []):
+                        races.append({
+                            'raceName': race.get('raceName', ''),
+                            'season': race.get('season', ''),
+                            'round': race.get('round', ''),
+                            'Driver.givenName': timing.get('driverId', ''),
+                            'lap': lap.get('number', ''),
+                            'time': timing.get('time', ''),
+                            'avgSpeed': timing.get('avgSpeed', {}).get('speed', 0),
+                            'Circuit.name': race.get('Circuit', {}).get('circuitName', '')
+                        })
+        else:
+            races_data = table_data.get('Races', [])
+            for race in races_data:
+                results = race.get('Results', [])
+                for result in results:
+                    driver = result.get('Driver', {})
+                    constructor = result.get('Constructor', {})
+                    circuit = race.get('Circuit', {})
+                    fastest_lap = result.get('FastestLap', {})
+                    races.append({
+                        'raceName': race.get('raceName', ''),
+                        'season': race.get('season', ''),
+                        'round': race.get('round', ''),
+                        'Driver.givenName': driver.get('givenName', ''),
+                        'Driver.familyName': driver.get('familyName', ''),
+                        'position': result.get('position', ''),
+                        'points': float(result.get('points', 0)),
+                        'laps': result.get('laps', ''),
+                        'grid': result.get('grid', ''),
+                        'status': result.get('status', ''),
+                        'fastestLap': fastest_lap.get('Time', {}).get('time', ''),
+                        'Constructor.name': constructor.get('name', ''),
+                        'Circuit.name': circuit.get('circuitName', '')
+                    })
+
+        df = pd.DataFrame(races)
+        if df.empty:
+            print(f"No data found for endpoint {endpoint}")
+        return df
 
     async def _fetch_with_retry(self, client: httpx.AsyncClient, url: str, max_retries: int = 3) -> Optional[dict]:
         """Fetch data with retry logic"""
@@ -432,6 +414,23 @@ class DataPipeline:
     @lru_cache(maxsize=128)
     async def _fetch_with_cache(self, client: httpx.AsyncClient, url: str) -> Optional[dict]:
         return await self._fetch_with_retry(client, url)
+
+    def _time_to_seconds(self, time_str: str) -> Optional[float]:
+        """Convert time string to seconds."""
+        if not time_str:
+            return None
+        try:
+            # Handle different time formats (MM:SS.sss or H:MM:SS.sss)
+            parts = time_str.split(':')
+            if len(parts) == 2:  # MM:SS.sss
+                minutes, seconds = parts
+                return float(minutes) * 60 + float(seconds)
+            elif len(parts) == 3:  # H:MM:SS.sss
+                hours, minutes, seconds = parts
+                return float(hours) * 3600 + float(minutes) * 60 + float(seconds)
+            return None
+        except (ValueError, IndexError):
+            return None
 
     async def process(self, requirements: DataRequirements) -> DataResponse:
         """Process data requirements and fetch data from the F1 API"""
@@ -477,7 +476,8 @@ class DataPipeline:
             # Filter by circuit if specified
             if requirements.params.get("circuit"):
                 circuit = requirements.params["circuit"]
-                normalized_df = normalized_df[normalized_df['Circuit.name'].str.contains(circuit, case=False, na=False)]
+                if 'circuit' in normalized_df.columns:
+                    normalized_df = normalized_df[normalized_df['circuit'].str.contains(circuit, case=False, na=False)]
             
             return DataResponse(
                 success=True,
@@ -495,25 +495,25 @@ class DataPipeline:
 
     async def _process_requests(self, requirements: DataRequirements, seasons: list, drivers: list, client: httpx.AsyncClient, all_dataframes: list):
         """Helper method to process all requests for given seasons and drivers"""
-                urls = []
-                for season in seasons:
-                    for driver in drivers:
-                        single_req = DataRequirements(
-                            endpoint=requirements.endpoint,
-                            params={**requirements.params, "season": season, "driver": driver}
-                        )
-                        url = self._build_url(single_req)
+        urls = []
+        for season in seasons:
+            for driver in drivers:
+                single_req = DataRequirements(
+                    endpoint=requirements.endpoint,
+                    params={**requirements.params, "season": season, "driver": driver}
+                )
+                url = self._build_url(single_req)
                 print(f"\nProcessing request for {driver} in {season}")
                 print(f"URL: {url}")
-                        urls.append(url)
+                urls.append(url)
 
         # Process URLs sequentially to avoid overwhelming the API
-                for url in urls:
+        for url in urls:
             result = await self._fetch_with_retry(client, url)
-                    if result:
-                        df = self._json_to_dataframe(result, requirements.endpoint)
+            if result:
+                df = self._json_to_dataframe(result, requirements.endpoint)
                 if not df.empty:
-                        all_dataframes.append(df)
+                    all_dataframes.append(df)
                     print(f"Successfully processed data from {url}")
                 else:
                     print(f"No data in response from {url}")
