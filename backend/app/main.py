@@ -80,8 +80,19 @@ def get_requirements_for_query(query: str) -> DataRequirements:
     query = query.lower()
     logger.info(f"Generating requirements for query: {query}")
     
+    # Extract year ranges
+    years = []
+    if "from" in query and "to" in query:
+        try:
+            start_year = int(query.split("from")[1].split("to")[0].strip())
+            end_year = int(query.split("to")[1].split()[0].strip())
+            years = [str(year) for year in range(start_year, end_year + 1)]
+            logger.info(f"Year range detected: {start_year} to {end_year}")
+        except ValueError:
+            years = ["2023"]  # Default to current season if parsing fails
+    
     # Default parameters
-    params = {"season": "2023"}
+    params = {"season": years if years else "2023"}
     endpoint = "/api/f1/drivers"
     
     # Extract driver name if present
@@ -89,37 +100,24 @@ def get_requirements_for_query(query: str) -> DataRequirements:
         "max verstappen": "max_verstappen",
         "lewis hamilton": "hamilton",
         "charles leclerc": "leclerc",
-        "oscar piastri": "piastri",
         "fernando alonso": "alonso",
         "lando norris": "norris",
         "george russell": "russell",
-        "carlos sainz": "sainz"
     }.items():
         if driver in query:
             params["driver"] = api_id
             logger.info(f"Driver found: {driver} -> {api_id}")
             break
     
-    # Check for qualifying queries
-    if "qualifying" in query:
-        endpoint = "/api/f1/qualifying"
-        logger.info("Query type: Qualifying")
-        
-        # Check for specific circuits
-        if "monaco" in query:
-            params["round"] = "6"  # Monaco GP round
-            logger.info("Circuit: Monaco (Round 6)")
-        elif "monza" in query:
-            params["round"] = "14"  # Monza round
-            logger.info("Circuit: Monza (Round 14)")
-    
-    # Check for specific circuits in race queries
-    elif "silverstone" in query:
-        params["round"] = "10"  # Silverstone round
-        logger.info("Circuit: Silverstone (Round 10)")
-    elif "monza" in query:
-        params["round"] = "14"  # Monza round
-        logger.info("Circuit: Monza (Round 14)")
+    # Check for constructor queries
+    if "red bull" in query:
+        endpoint = "/api/f1/constructors"
+        params["constructor"] = "red_bull"
+        logger.info("Constructor: Red Bull")
+    elif "mercedes" in query:
+        endpoint = "/api/f1/constructors"
+        params["constructor"] = "mercedes"
+        logger.info("Constructor: Mercedes")
     
     requirements = DataRequirements(endpoint=endpoint, params=params)
     logger.info(f"Generated requirements: {requirements}")

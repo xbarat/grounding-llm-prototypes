@@ -43,50 +43,41 @@ The response must adhere to this exact JSON structure:
     "params": {
         "season": string | string[],  // Optional, year like "2023" or array of years
         "circuit": string,            // Optional, snake_case like "monaco"
-        "driver": string | string[],  // Optional, snake_case like "max_verstappen"
+        "driver": string | string[],  // Optional, snake_case like "max_verstappen", "carlos_sainz_jr", "piastri"
         "constructor": string,        // Optional, snake_case like "red_bull"
         "round": string               // Optional, numeric like "1"
     }
 }
 
-Query: """ + query
+For driver IDs, use these mappings:
+- "Carlos Sainz" -> "carlos_sainz_jr"
+- "Oscar Piastri" -> "piastri"
+- "Max Verstappen" -> "max_verstappen"
+- "Lewis Hamilton" -> "hamilton"
+- "Charles Leclerc" -> "leclerc"
+- "George Russell" -> "russell"
+- "Lando Norris" -> "norris"
+- "Fernando Alonso" -> "alonso"
+
+Query: """ + query + """
+
+Return only the JSON object, no other text."""
                 }],
                 temperature=0,
-                response_format={ "type": "json_object" }
+                max_tokens=500
             )
             
-            print("\nReceived response from GPT-4O Mini")
-            content = response.choices[0].message.content
-            if content is None:
-                raise ValueError("No content in response")
-                
-            print("\nParsing response...")
-            parsed = json.loads(content)
-            
-            # Validate response structure
-            if not isinstance(parsed, dict):
-                raise ValueError("Response is not a JSON object")
-            if "endpoint" not in parsed:
-                raise ValueError("Missing 'endpoint' in response")
-            if "params" not in parsed:
-                raise ValueError("Missing 'params' in response")
-            
-            # Create DataRequirements object
-            requirements = DataRequirements(
-                endpoint=parsed["endpoint"],
-                params=parsed["params"]
+            result = json.loads(response.choices[0].message.content)
+            return DataRequirements(
+                endpoint=result["endpoint"],
+                params=result["params"]
             )
-            
-            print("\nProcessed requirements:", requirements)
-            return requirements
-            
         except Exception as e:
-            print(f"\nError processing query: {str(e)}")
-            # Return a safe default focused on the driver if we can extract it
-            default_driver = query.lower().split()[0] if query else "unknown"
+            print(f"Error processing query: {str(e)}")
+            # Default to driver endpoint with season parameter
             return DataRequirements(
                 endpoint="/api/f1/drivers",
-                params={"driver": default_driver}
+                params={"season": "2023"}
             )
 
 async def main():

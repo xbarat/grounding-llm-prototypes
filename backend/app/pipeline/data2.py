@@ -433,18 +433,15 @@ class DataPipeline:
         for attempt in range(max_retries):
             try:
                 print(f"\nAttempt {attempt + 1} for {url}")
-                # Use streaming response for large payloads
                 async with client.stream('GET', url) as response:
                     print(f"Status: {response.status_code}")
                     print(f"Headers: {dict(response.headers)}")
                     
-                if response.status_code == 200:
-                        # Accumulate chunks
+                    if response.status_code == 200:
                         chunks = []
                         async for chunk in response.aiter_bytes():
                             chunks.append(chunk)
                         
-                        # Combine chunks and parse JSON
                         try:
                             content = b''.join(chunks)
                             data = json.loads(content)
@@ -457,19 +454,25 @@ class DataPipeline:
                             if attempt < max_retries - 1:
                                 await asyncio.sleep(2 ** attempt)
                                 continue
-                elif response.status_code == 429:  # Rate limit
+                    
+                    if response.status_code == 429:
                         print("Rate limited, backing off...")
-                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
-                    continue
-                else:
-                        print(f"Request failed with status {response.status_code}")
+                        await asyncio.sleep(2 ** attempt)
+                        continue
+                    
+                    print(f"Request failed with status {response.status_code}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2 ** attempt)
+                        continue
                     return None
+                    
             except Exception as e:
                 print(f"Request error: {str(e)}")
                 if attempt < max_retries - 1:
                     print("Retrying...")
-                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                    await asyncio.sleep(2 ** attempt)
                 continue
+        
         return None
 
     @lru_cache(maxsize=128)
