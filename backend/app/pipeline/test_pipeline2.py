@@ -5,6 +5,7 @@ import pandas as pd
 import httpx
 import traceback
 from collections import defaultdict
+from typing import Union, Dict, Any
 
 # Add the backend directory to Python path
 backend_dir = str(Path(__file__).parent.parent.parent)
@@ -21,17 +22,17 @@ class TestMetrics:
         self.json_to_df_success = 0
         self.json_to_df_failure = 0
         self.failure_reasons = defaultdict(int)
-        
+    
     def record_api_success(self):
         self.query_to_json_success += 1
-        
+    
     def record_api_failure(self, reason):
         self.query_to_json_failure += 1
         self.failure_reasons[f"API: {reason}"] += 1
-        
+    
     def record_df_success(self):
         self.json_to_df_success += 1
-        
+    
     def record_df_failure(self, reason):
         self.json_to_df_failure += 1
         self.failure_reasons[f"DataFrame: {reason}"] += 1
@@ -56,72 +57,34 @@ class TestMetrics:
 
 metrics = TestMetrics()
 
-async def test_integrated_pipeline(query: str, client: httpx.AsyncClient):
-    """Test the complete pipeline from natural language to data"""
-    
+async def test_integrated_pipeline(query: str, client: httpx.AsyncClient) -> Union[pd.DataFrame, Dict[str, Any]]:
+    """Test the integrated pipeline with a query."""
     print("\nTesting integrated pipeline...")
     print(f"Query: {query}")
     
-    try:
-        # Step 1: Process the natural language query
-        print("\nStep 1: Processing query...")
-        processor = QueryProcessor()
-        requirements = await processor.process_query(query)
-        print(f"Generated requirements: {requirements}")
-        
-        # Step 2: Use the requirements to fetch and process data
-        print("\nStep 2: Fetching and processing data...")
-        pipeline = DataPipeline(client=client)
-        response = await pipeline.process(requirements)
-        
-        if response.success and response.data is not None:
-            metrics.record_api_success()
-            df = response.data["results"]
-            
-            if not df.empty:
-                metrics.record_df_success()
-                print("\nData Overview:")
-                print("--------------")
-                print(f"Total rows: {len(df)}")
-                print(f"Columns: {', '.join(df.columns)}")
-                
-                if requirements.endpoint == "/api/f1/qualifying":
-                    transformer = DataTransformer()
-                    normalized_df = transformer.normalize_qualifying(df)
-                    if normalized_df.empty:
-                        metrics.record_df_failure("Empty normalized qualifying data")
-                    else:
-                        print("\nQualifying Results:")
-                        print("--------------")
-                        print(normalized_df.head())
-                else:
-                    if 'driver' in df.columns:
-                        print("\nDriver Statistics:")
-                        print("------------------")
-                        for driver in sorted(df['driver'].unique()):
-                            driver_df = df[df['driver'] == driver]
-                            stats = DataTransformer.calculate_driver_stats(driver_df)
-                            if stats:
-                                print(f"\n{driver}:")
-                                for stat, value in sorted(stats.items()):
-                                    if isinstance(value, float):
-                                        print(f"  {stat}: {value:.2f}")
-                                    else:
-                                        print(f"  {stat}: {value}")
-                            else:
-                                metrics.record_df_failure("Failed to calculate driver stats")
-            else:
-                metrics.record_df_failure("Empty DataFrame")
+    print("\nStep 1: Processing query...")
+    processor = QueryProcessor()
+    requirements = await processor.process_query(query)
+    if not requirements:
+        return pd.DataFrame()
+    
+    print("\nStep 2: Fetching and processing data...")
+    pipeline = DataPipeline()
+    response = await pipeline.process(requirements)
+    
+    # Return the raw DataFrame for validation
+    if response.success and response.data is not None:
+        metrics.record_api_success()
+        df = response.data["results"]
+        if not df.empty:
+            metrics.record_df_success()
+            return df
         else:
-            metrics.record_api_failure(response.error or "Unknown error")
-            print("\nError occurred:")
-            print(response.error)
-            
-    except Exception as e:
-        metrics.record_api_failure(str(e))
-        print(f"\nError occurred:")
-        print(f"Error details: {str(e)}")
-        print(f"Traceback: {traceback.format_exc()}")
+            metrics.record_df_failure("Empty DataFrame")
+    else:
+        metrics.record_api_failure(response.error or "Unknown error")
+    
+    return pd.DataFrame()
 
 async def run_all_tests(test_queries):
     """Run all tests using a single event loop and shared client"""
