@@ -14,7 +14,7 @@ DRIVER_IDS = {
     "fernando_alonso": "alonso",
     "oscar_piastri": "piastri",
     "valtteri_bottas": "bottas",
-    "carlos_sainz_jr": "sainz",
+    "sainz": "sainz",
     "piastri": "piastri"
 }
 
@@ -23,46 +23,13 @@ DRIVER_DISPLAY_TO_API = {
     "max verstappen": "max_verstappen",
     "lewis hamilton": "hamilton",
     "charles leclerc": "leclerc",
-    "carlos sainz": "carlos_sainz_jr",
+    "carlos sainz": "sainz",
     "oscar piastri": "piastri",
     "lando norris": "norris",
     "george russell": "russell",
     "fernando alonso": "alonso",
     "sergio perez": "perez",
-    "valtteri bottas": "bottas",
-    # Historical champions
-    "michael schumacher": "michael_schumacher",
-    "ayrton senna": "senna",
-    "alain prost": "prost",
-    "niki lauda": "lauda",
-    "juan manuel fangio": "fangio",
-    "jim clark": "clark",
-    "jackie stewart": "stewart",
-    "nelson piquet": "piquet",
-    "jack brabham": "brabham",
-    "graham hill": "graham_hill",
-    "emerson fittipaldi": "fittipaldi",
-    "james hunt": "hunt",
-    "mario andretti": "andretti",
-    "gilles villeneuve": "villeneuve",
-    "keke rosberg": "rosberg",
-    "nigel mansell": "mansell",
-    "damon hill": "damon_hill",
-    "mika hakkinen": "hakkinen",
-    # Common abbreviations and variations
-    "msc": "michael_schumacher",
-    "schumi": "michael_schumacher",
-    "m. schumacher": "michael_schumacher",
-    "ver": "max_verstappen",
-    "ham": "hamilton",
-    "lec": "leclerc",
-    "per": "perez",
-    "sai": "carlos_sainz_jr",
-    "rus": "russell",
-    "nor": "norris",
-    "alo": "alonso",
-    "pia": "piastri",
-    "bot": "bottas"
+    "valtteri bottas": "bottas"
 }
 
 # API endpoint templates
@@ -203,50 +170,6 @@ CIRCUIT_NAME_TO_ID = {
     "french grand prix": "paul_ricard"
 }
 
-# Driver name variations
-DRIVER_VARIATIONS = {
-    "michael_schumacher": [
-        "msc", "schumi", "m. schumacher", "michael schumacher",
-        "m schumacher", "m_schumacher", "m.schumacher"
-    ],
-    "max_verstappen": [
-        "ver", "verstappen", "max verstappen",
-        "m verstappen", "m. verstappen"
-    ],
-    "hamilton": [
-        "ham", "lewis", "lewis hamilton",
-        "l hamilton", "l. hamilton"
-    ],
-    "leclerc": [
-        "lec", "charles", "charles leclerc",
-        "c leclerc", "c. leclerc"
-    ],
-    "carlos_sainz_jr": [
-        "sai", "sainz", "carlos sainz",
-        "c sainz", "c. sainz"
-    ],
-    "piastri": [
-        "pia", "oscar", "oscar piastri",
-        "o piastri", "o. piastri"
-    ],
-    "norris": [
-        "nor", "lando", "lando norris",
-        "l norris", "l. norris"
-    ],
-    "russell": [
-        "rus", "george", "george russell",
-        "g russell", "g. russell"
-    ],
-    "alonso": [
-        "alo", "fernando", "fernando alonso",
-        "f alonso", "f. alonso"
-    ],
-    "perez": [
-        "per", "checo", "sergio perez",
-        "s perez", "s. perez"
-    ]
-}
-
 def normalize_driver_id(driver_name: str) -> str:
     """
     Normalize a driver name to a consistent format.
@@ -257,30 +180,14 @@ def normalize_driver_id(driver_name: str) -> str:
     Returns:
         str: The normalized driver name (lowercase, spaces replaced with underscores)
     """
-    if not driver_name:
-        return ""
-        
     # Remove extra spaces and convert to lowercase
     normalized = driver_name.strip().lower()
     
-    # Replace special characters with spaces
-    normalized = normalized.replace(".", " ").replace("-", " ").replace("_", " ")
+    # Replace underscores with spaces for consistent handling
+    normalized = normalized.replace("_", " ")
     
     # Remove any double spaces
     normalized = " ".join(normalized.split())
-    
-    # Check for abbreviations first
-    if len(normalized) == 3 and normalized.upper() == normalized.upper():
-        return normalized.lower()
-    
-    # Handle special case of initials (e.g., "M. Schumacher")
-    parts = normalized.split()
-    if len(parts) == 2 and len(parts[0]) == 1:
-        # Look for full name matches
-        for api_id, variations in DRIVER_VARIATIONS.items():
-            for variation in variations:
-                if variation.startswith(parts[0]) and variation.endswith(parts[1]):
-                    return api_id
     
     return normalized
 
@@ -295,22 +202,7 @@ def get_driver_api_id(driver_id: str) -> str:
         str: The API driver ID used in endpoints
     """
     normalized = normalize_driver_id(driver_id)
-    
-    # Check direct mapping first
-    if normalized in DRIVER_DISPLAY_TO_API:
-        return DRIVER_DISPLAY_TO_API[normalized]
-    
-    # Check variations
-    for api_id, variations in DRIVER_VARIATIONS.items():
-        if normalized in variations:
-            return api_id
-        # Check if any variation contains the normalized form
-        for variation in variations:
-            if normalized in variation or variation in normalized:
-                return api_id
-    
-    # If no match found, convert spaces to underscores as fallback
-    return normalized.replace(" ", "_")
+    return DRIVER_DISPLAY_TO_API.get(normalized, driver_id)
 
 def build_url(template_name: str, **kwargs) -> str:
     """
@@ -352,4 +244,26 @@ def normalize_circuit_id(circuit_id: str) -> str:
     for normalized_id, variants in CIRCUIT_MAPPINGS.items():
         if circuit_id in variants or any(variant.replace(" ", "_") == circuit_id for variant in variants):
             return normalized_id
+    return circuit_id 
+
+def get_circuit_api_id(circuit_id: str) -> str:
+    """
+    Get the API circuit ID from a normalized circuit ID.
+    
+    Args:
+        circuit_id: The normalized circuit ID
+        
+    Returns:
+        str: The API circuit ID used in endpoints
+    """
+    # Check direct mapping first
+    if circuit_id in CIRCUIT_IDS:
+        return CIRCUIT_IDS[circuit_id]
+    
+    # Check name variations
+    if circuit_id in CIRCUIT_NAME_TO_ID:
+        normalized_id = CIRCUIT_NAME_TO_ID[circuit_id]
+        return CIRCUIT_IDS.get(normalized_id, normalized_id)
+    
+    # If no match found, return the original ID
     return circuit_id 
