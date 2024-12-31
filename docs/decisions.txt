@@ -1,0 +1,86 @@
+# Key Decisions & Interventions Log
+
+## Critical Challenges & Resolutions
+
+1. Initial Pipeline Stability Issues
+   - Challenge: Scattered approach to handling different endpoints and data types
+   - Initial Direction: Adding more features without stabilizing core functionality
+   - Your Intervention: Forced focus on getting one endpoint (driver performance) working perfectly before expanding
+   - Result: Established solid foundation for further development
+
+2. Data Normalization Complexity
+   - Challenge: Inconsistent data handling across different endpoints
+   - Initial Direction: Creating separate handling logic for each endpoint
+   - Your Intervention: Mandated creation of standardized DataTransformer class
+   - Result: Consistent and maintainable data processing across all endpoints
+
+3. Connection Handling Problems
+   - Challenge: Large payload failures and incomplete data retrieval
+   - Initial Direction: Basic retry mechanism without proper error handling
+   - Your Intervention: Directed implementation of streaming responses and chunk handling
+   - Result: Robust handling of large responses and 100% API fetch success rate
+
+4. Circuit-Specific Query Issues
+   - Challenge: Monaco qualifying data not being retrieved correctly
+   - Initial Direction: Complex filtering post-data retrieval
+   - Your Intervention: Insisted on proper URL construction with round numbers
+   - Result: Accurate circuit-specific data retrieval and correct round mapping
+
+5. Mapping System Integration
+   - Challenge: Hardcoded mappings scattered throughout the code
+   - Initial Direction: Adding more mappings directly in data2.py
+   - Your Intervention: Demanded centralized mapping system in separate module
+   - Result: Maintainable and extensible mapping system without disrupting existing code
+
+## Key Learning Points
+
+1. Stability Over Features
+   - Your Principle: "Get it working 100% before adding more"
+   - Impact: Avoided feature creep and maintained code quality
+
+2. Systematic Testing
+   - Your Principle: "Test one thing at a time, thoroughly"
+   - Impact: Identified and fixed issues efficiently
+
+3. Code Organization
+   - Your Principle: "Separate concerns properly"
+   - Impact: More maintainable and scalable codebase
+
+4. Problem Isolation
+   - Your Principle: "Test components in isolation"
+   - Impact: Faster debugging and issue resolution
+
+5. Documentation Importance
+   - Your Principle: "Document decisions and progress"
+   - Impact: Clear understanding of project evolution
+
+## Future Decision Framework
+
+1. Feature Addition Criteria
+   - Must not disrupt existing functionality
+   - Must be thoroughly tested in isolation
+   - Must maintain or improve current success rates
+
+2. Code Changes Guidelines
+   - Keep stable code stable
+   - Test thoroughly before integration
+   - Document all significant changes
+
+3. Priority Assessment
+   - Focus on data quality first
+   - Performance optimization second
+   - New features last
+
+## Success Metrics
+
+Initial State:
+- API Success Rate: ~70%
+- DataFrame Conversion: ~60%
+- Circuit Queries: Unreliable
+
+Current State:
+- API Success Rate: 100%
+- DataFrame Conversion: 100%
+- Circuit Queries: Fully functional
+
+Key to Success: Your consistent emphasis on getting the basics right before moving forward. 
