@@ -38,3 +38,24 @@ backend/app/
     ├── plotting.py
     ├── variable_mapper.py
     └── __init__.py
+
+## Environment Variables
+
+backend/.env
+
+## File Brief
+
+1. Data Processing (pipeline/)
+    - Core data handling (`data2.py`)
+    - ID mappings (`mappings.py`)
+    - Data validation (`data_validator.py`)
+    - Testing (`test_pipeline2.py`, `test_endpoints.py`)
+2. Query Processing (query/)
+    - Query handling (`processor.py`)
+3. Analysis & Visualization (analyst/)
+    - Code generation (`generate.py`, `prompts.py`)
+    - Plotting utilities (`plotting.py`)
+    - Variable mapping (`variable_mapper.py`)
+4. Main Application
+    - Entry point (`main.py`)
+

@@ -1,73 +1,79 @@
-# F1 Data Pipeline - Progress Report & Future Direction
+# F1 Data Analysis System - Product Brief 2.0
 
-## What We've Achieved
+## Overview
+A robust F1 data analysis system focused on time-series analysis across multiple seasons, providing insights into driver and team performance trends.
 
-### 1. Robust Data Pipeline
-- Successfully implemented a stable data pipeline with 100% success rate for both API fetches and DataFrame conversions
-- Added intelligent circuit round mapping for accurate race-specific queries
-- Implemented robust error handling and retry mechanisms
-- Added streaming response handling for large payloads
+## Core Capabilities
 
-### 2. Data Normalization
-- Standardized data processing for multiple endpoints:
-  - Driver performance data
-  - Qualifying results
-  - Lap times
-- Implemented consistent column naming and data type conversions
-- Added comprehensive data validation at multiple stages
+### 1. Time-Series Analysis
+- Multi-season performance tracking
+- Driver career progression analysis
+- Team development trends
+- Circuit-specific performance patterns
 
-### 3. Circuit & Driver Mapping
-- Created a centralized mapping system for:
-  - Driver IDs and variations
-  - Circuit names and their variants
-  - Race round numbers by season
-  - Circuit ID normalization
-- Successfully integrated mapping system without disrupting existing functionality
+### 2. Data Processing
+- Robust driver and circuit ID mapping
+- Standardized data validation
+- Consistent DataFrame structures
+- Reliable API data retrieval
 
-### 4. Query Capabilities
-Currently supporting:
-- Driver performance across seasons
-- Qualifying results with circuit-specific filtering
-- Lap time analysis
-- Driver statistics (wins, podiums, points, etc.)
-- Circuit-specific performance queries
+### 3. Query Processing
+- Natural language query interpretation
+- Automatic requirement extraction
+- Focus on time-series related queries
+- Support for complex multi-season analysis
 
-## Current Status
-- API Fetch Success Rate: 100%
-- DataFrame Conversion Success Rate: 100%
-- Supported Endpoints: 
-  - `/api/f1/drivers`
-  - `/api/f1/qualifying`
-  - `/api/f1/laps`
-  - `/api/f1/constructors`
+### 4. Visualization
+- Time-series focused plotting
+- Performance trend visualization
+- Comparative analysis charts
+- Season-over-season comparisons
 
-## Next Steps
+## Target Use Cases
 
-### 1. Data Enhancement
-- Add weather condition data integration
-- Implement tire strategy analysis
-- Add head-to-head driver comparisons
-- Include practice session data
+1. Driver Performance Analysis
+   - Career progression tracking
+   - Season-by-season comparisons
+   - Circuit-specific performance trends
 
-### 2. Performance Optimization
-- Implement more sophisticated caching strategies
-- Add parallel processing for non-rate-limited queries
-- Optimize memory usage for large datasets
+2. Team Performance Tracking
+   - Development patterns across seasons
+   - Performance trends at specific circuits
+   - Championship point progression
 
-### 3. Analysis Features
-- Add statistical analysis tools
-- Implement trend analysis
-- Create visualization capabilities
-- Add predictive modeling support
+3. Statistical Analysis
+   - Long-term performance metrics
+   - Trend identification
+   - Pattern recognition across seasons
 
-### 4. User Interface
-- Develop a query builder interface
-- Create data visualization dashboard
-- Add export capabilities for different formats
-- Implement real-time data updates
+## Technical Focus
 
-### 5. Documentation
-- Create comprehensive API documentation
-- Add usage examples and tutorials
-- Document data schemas and relationships
-- Create troubleshooting guides 
+1. Data Reliability
+   - Centralized ID mapping system
+   - Comprehensive data validation
+   - Robust error handling
+
+2. Analysis Capabilities
+   - Dynamic code generation
+   - Flexible visualization options
+   - Standardized data structures
+
+3. Testing & Validation
+   - Comprehensive test suite
+   - API endpoint validation
+   - Data quality checks
+
+## Success Metrics
+1. Query Success Rate
+   - Time-series queries: Target 95%+
+   - Multi-season analysis: Target 90%+
+
+2. Data Quality
+   - ID mapping accuracy: 100%
+   - Data validation coverage: 100%
+   - DataFrame consistency: 100%
+
+3. Performance
+   - Query processing time: < 2s
+   - Data retrieval reliability: 95%+
+   - Analysis generation accuracy: 90%+ 
