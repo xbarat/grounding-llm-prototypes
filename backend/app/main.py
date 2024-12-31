@@ -1,81 +1,196 @@
+"""Main application integrating F1 data pipeline with analysis"""
 import asyncio
+import logging
+from typing import Dict, Any, List, Tuple
 import pandas as pd
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from query.processor import QueryProcessor
-from engine.analysis import AnalysisEngine
+from app.pipeline.data2 import DataPipeline, DataRequirements, DataResponse
+from app.analyst.generate import generate_code, extract_code_block, execute_code_safely
 
-async def process_f1_query(query: str):
-    """Process an F1 query through the entire pipeline"""
-    
-    # Initialize components
-    processor = QueryProcessor()
-    engine = AnalysisEngine()
-    
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+async def analyze_f1_data(query: str, requirements: DataRequirements) -> Dict[str, Any]:
+    """Process an F1 query from data retrieval through analysis"""
     try:
-        # Connect to PostgreSQL
-        conn = psycopg2.connect(
-            dbname="f1_db",
-            user="postgres",
-            password="postgres",
-            host="localhost",
-            port="5432",
-            cursor_factory=RealDictCursor
-        )
+        # Log request details
+        logger.info(f"Processing query: {query}")
+        logger.info(f"Endpoint: {requirements.endpoint}")
+        logger.info(f"Parameters: {requirements.params}")
         
-        # Process query to get data requirements
-        print(f"\nProcessing query: {query}")
+        # Step 1: Get data from pipeline
+        pipeline = DataPipeline()
+        logger.info("Fetching data from pipeline...")
+        response = await pipeline.process(requirements)
         
-        # For qualifying comparison query, fetch qualifying data
-        if "qualifying" in query.lower():
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT 
-                        d.forename || ' ' || d.surname as driver_name,
-                        q.position,
-                        q.q1_time as q1,
-                        q.q2_time as q2,
-                        q.q3_time as q3,
-                        r.year,
-                        r.round,
-                        c.circuit_name
-                    FROM qualifying q
-                    JOIN races r ON q.race_id = r.race_id
-                    JOIN circuits c ON r.circuit_id = c.circuit_id
-                    JOIN drivers d ON q.driver_id = d.driver_id
-                    WHERE r.year = 2023 AND c.circuit_name = 'Monaco'
-                    ORDER BY q.position;
-                """)
-                rows = cur.fetchall()
-                df = pd.DataFrame(rows)
-                
-                # Debug output
-                print("\nDataFrame contents:")
-                print(df)
-                print("\nDataFrame info:")
-                print(df.info())
+        if not response.success or not response.data:
+            logger.error(f"Pipeline error: {response.error}")
+            return {
+                "success": False,
+                "error": "Failed to retrieve data",
+                "details": response.error
+            }
             
-        else:
-            raise Exception("Only qualifying queries are supported at the moment")
-            
-        print("\nData fetched successfully")
-        print("DataFrame shape:", df.shape)
+        logger.info(f"Data retrieved successfully. Shape: {pd.DataFrame(response.data['results']).shape}")
         
-        # Generate and execute analysis
-        analysis_result = await engine.analyze(df, query)
-        print("\nAnalysis Result:")
-        print(analysis_result)
+        # Step 2: Generate analysis code
+        logger.info("Generating analysis code...")
+        code_response = generate_code(response.data["results"], query)
+        code = extract_code_block(code_response)
+        
+        if not code:
+            logger.error("No code block found in response")
+            return {
+                "success": False,
+                "error": "Failed to generate code",
+                "details": "No code block found in response"
+            }
+            
+        logger.info("Code generated successfully")
+        
+        # Step 3: Execute analysis
+        logger.info("Executing analysis code...")
+        success, result, modified_code = execute_code_safely(code, response.data["results"])
+        
+        if not success:
+            logger.error(f"Code execution failed: {result}")
+            return {
+                "success": False,
+                "error": "Analysis execution failed",
+                "details": result
+            }
+            
+        logger.info("Analysis completed successfully")
+        return {
+            "success": True,
+            "data": result,
+            "code": modified_code
+        }
         
     except Exception as e:
-        print(f"Error processing query: {str(e)}")
-    finally:
-        if 'conn' in locals():
-            conn.close()
+        logger.exception("Unexpected error during analysis")
+        return {
+            "success": False,
+            "error": "Analysis failed",
+            "details": str(e)
+        }
 
-async def main():
-    # Test qualifying comparison query
-    query = "Compare qualifying times between Verstappen and Hamilton at Monaco 2023"
-    await process_f1_query(query)
+def get_requirements_for_query(query: str) -> DataRequirements:
+    """Get appropriate DataRequirements based on the query"""
+    query = query.lower()
+    logger.info(f"Generating requirements for query: {query}")
+    
+    # Default parameters
+    params = {"season": "2023"}
+    endpoint = "/api/f1/drivers"
+    
+    # Extract driver name if present
+    for driver, api_id in {
+        "max verstappen": "max_verstappen",
+        "lewis hamilton": "hamilton",
+        "charles leclerc": "leclerc",
+        "oscar piastri": "piastri",
+        "fernando alonso": "alonso",
+        "lando norris": "norris",
+        "george russell": "russell",
+        "carlos sainz": "sainz"
+    }.items():
+        if driver in query:
+            params["driver"] = api_id
+            logger.info(f"Driver found: {driver} -> {api_id}")
+            break
+    
+    # Check for qualifying queries
+    if "qualifying" in query:
+        endpoint = "/api/f1/qualifying"
+        logger.info("Query type: Qualifying")
+        
+        # Check for specific circuits
+        if "monaco" in query:
+            params["round"] = "6"  # Monaco GP round
+            logger.info("Circuit: Monaco (Round 6)")
+        elif "monza" in query:
+            params["round"] = "14"  # Monza round
+            logger.info("Circuit: Monza (Round 14)")
+    
+    # Check for specific circuits in race queries
+    elif "silverstone" in query:
+        params["round"] = "10"  # Silverstone round
+        logger.info("Circuit: Silverstone (Round 10)")
+    elif "monza" in query:
+        params["round"] = "14"  # Monza round
+        logger.info("Circuit: Monza (Round 14)")
+    
+    requirements = DataRequirements(endpoint=endpoint, params=params)
+    logger.info(f"Generated requirements: {requirements}")
+    return requirements
+
+async def test_analysis():
+    """Test the integrated analysis pipeline with all test queries"""
+    test_queries = [
+        # Basic performance queries
+        "How has Max Verstappen performed in the 2023 season?",
+        "What are Lewis Hamilton's stats for 2023?",
+        
+        # Qualifying specific queries
+        "What was Charles Leclerc's qualifying position in Monaco 2023?",
+        "Show me Oscar Piastri's qualifying results for 2023",
+        
+        # Race performance queries
+        "How many podiums did Fernando Alonso get in 2023?",
+        "What's Lando Norris's average finishing position in 2023?",
+        
+        # Circuit specific queries
+        "How did George Russell perform at Silverstone in 2023?",
+        "Show me Carlos Sainz's results at Monza 2023"
+    ]
+    
+    print("\nStarting F1 Data Analysis Test Suite...")
+    print("=" * 80)
+    logger.info("Starting test suite with 8 queries")
+    
+    results = []
+    for i, query in enumerate(test_queries, 1):
+        print(f"\nTest {i}/8: {query}")
+        print("-" * 40)
+        logger.info(f"Running test {i}/8: {query}")
+        
+        requirements = get_requirements_for_query(query)
+        result = await analyze_f1_data(query, requirements)
+        results.append((query, result))
+        
+        if result["success"]:
+            logger.info(f"Test {i} successful")
+            print("✓ Success!")
+            if result["data"].get("output"):
+                print("\nOutput:")
+                print(result["data"]["output"].strip())
+        else:
+            logger.error(f"Test {i} failed: {result['error']}")
+            print("✗ Failed!")
+            print("Error:", result["error"])
+            print("Details:", result["details"])
+            
+        print("-" * 40)
+    
+    # Print summary
+    print("\nTest Summary")
+    print("=" * 80)
+    successes = sum(1 for _, r in results if r["success"])
+    logger.info(f"Test suite completed. Success rate: {successes}/8")
+    print(f"Total queries: 8")
+    print(f"Successful: {successes}")
+    print(f"Failed: {8 - successes}")
+    
+    # Print failed queries if any
+    if successes < 8:
+        print("\nFailed Queries:")
+        for query, result in results:
+            if not result["success"]:
+                print(f"- {query}")
+                print(f"  Error: {result['error']}")
+                logger.error(f"Failed query: {query}")
+                logger.error(f"Error details: {result['details']}")
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(test_analysis()) 

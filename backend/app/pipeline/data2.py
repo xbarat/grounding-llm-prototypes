@@ -237,7 +237,14 @@ class DataPipeline:
             "/api/f1/status": "{base_url}/{season}/status.json",
             "/api/f1/circuits": "{base_url}/{season}/circuits.json",
             "/api/f1/standings/drivers": "{base_url}/{season}/{round}/driverStandings.json",
-            "/api/f1/standings/constructors": "{base_url}/{season}/{round}/constructorStandings.json"
+            "/api/f1/standings/constructors": "{base_url}/{season}/{round}/constructorStandings.json",
+            "/api/f1/results": "{base_url}/{season}/{round}/results.json"  # Added results endpoint
+        }
+        
+        # Round-specific templates for qualifying and results
+        self.round_templates = {
+            "/api/f1/qualifying": "{base_url}/{season}/{round}/qualifying.json",
+            "/api/f1/results": "{base_url}/{season}/{round}/results.json"
         }
         
         # Use mappings from the mappings module
@@ -287,32 +294,38 @@ class DataPipeline:
         if requirements.endpoint not in self.endpoint_templates:
             raise ValueError(f"Unknown endpoint: {requirements.endpoint}")
             
-        # Get template
-        template = self.endpoint_templates[requirements.endpoint]
-        
         # Build kwargs from requirements
         kwargs = {}
         
         # Season handling
         kwargs["season"] = self._normalize_param(requirements.params.get("season"))
         
-        # Circuit handling first (to get round number if needed)
+        # Round handling
+        round_num = requirements.params.get("round")
+        if round_num:
+            kwargs["round"] = self._normalize_param(round_num)
+            # Use round-specific template if available
+            if requirements.endpoint in self.round_templates:
+                template = self.round_templates[requirements.endpoint]
+            else:
+                template = self.endpoint_templates[requirements.endpoint]
+        else:
+            template = self.endpoint_templates[requirements.endpoint]
+        
+        # Circuit handling
         circuit = requirements.params.get("circuit")
         if circuit:
             circuit_id = normalize_circuit_id(self._normalize_param(circuit))
             kwargs["circuit"] = get_circuit_api_id(circuit_id)
             
-            # Get round number for qualifying with circuit
-            if requirements.endpoint == "/api/f1/qualifying" and kwargs.get("season"):
+            # Get round number for circuit if not already specified
+            if not round_num and kwargs.get("season"):
                 round_num = get_round_number(kwargs["season"], circuit_id)
                 if round_num is not None:
                     kwargs["round"] = str(round_num)
-                    # Update template to include round for qualifying
-                    template = "{base_url}/{season}/{round}/qualifying.json"
-        
-        # Round handling (if not already set and not qualifying with circuit)
-        if "round" not in kwargs and not (requirements.endpoint == "/api/f1/qualifying" and circuit):
-            kwargs["round"] = self._normalize_param(requirements.params.get("round"), "last")
+                    # Use round-specific template
+                    if requirements.endpoint in self.round_templates:
+                        template = self.round_templates[requirements.endpoint]
         
         # Driver handling
         driver = requirements.params.get("driver")
@@ -425,7 +438,7 @@ class DataPipeline:
                     print(f"Status: {response.status_code}")
                     print(f"Headers: {dict(response.headers)}")
                     
-                    if response.status_code == 200:
+                if response.status_code == 200:
                         # Accumulate chunks
                         chunks = []
                         async for chunk in response.aiter_bytes():
@@ -444,13 +457,13 @@ class DataPipeline:
                             if attempt < max_retries - 1:
                                 await asyncio.sleep(2 ** attempt)
                                 continue
-                    elif response.status_code == 429:  # Rate limit
+                elif response.status_code == 429:  # Rate limit
                         print("Rate limited, backing off...")
-                        await asyncio.sleep(2 ** attempt)  # Exponential backoff
-                        continue
-                    else:
+                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                    continue
+                else:
                         print(f"Request failed with status {response.status_code}")
-                        return None
+                    return None
             except Exception as e:
                 print(f"Request error: {str(e)}")
                 if attempt < max_retries - 1:
