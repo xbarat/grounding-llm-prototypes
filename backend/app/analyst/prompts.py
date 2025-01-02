@@ -1,73 +1,47 @@
 # prompts.py
 from typing import Optional
+import pandas as pd
+from io import StringIO
 
-def f1_prompt(df, question: str) -> str:
-    """Generate a prompt specifically for F1 data visualization with robust data handling"""
-    prompt = f'''You are an F1 data analyst creating visualizations. You have a DataFrame 'data' containing F1 race data with this structure:
+def f1_prompt(df: pd.DataFrame, query: str) -> str:
+    """Generate a prompt for F1 data analysis"""
+    # Get DataFrame info
+    buffer = StringIO()
+    df.info(buf=buffer)
+    df_info = buffer.getvalue()
+    
+    return f"""You are an F1 data analyst. Generate Python code to analyze and visualize F1 race data based on the user's query.
+The data is available in a pandas DataFrame with the following structure:
 
-DataFrame Info:
-{df.info()}
+{df_info}
 
-First few rows:
-{df.head().to_string()}
+Important guidelines:
+1. Use seaborn and matplotlib for visualizations
+2. Ensure numeric operations are performed on numeric data types
+3. Convert string columns to numeric when needed (e.g., 'season', 'round')
+4. Handle missing values appropriately
+5. Create clear and informative visualizations
+6. Include a brief text summary of the findings
 
-Question: {question}
+User Query: {query}
 
-Generate Python code that follows these exact requirements:
-1. Use matplotlib's dark_background style
-2. Set seaborn's darkgrid theme
-3. Use the existing 'data' DataFrame exactly as provided
-4. Create clear visualizations with proper data validation
-5. IMPORTANT: Season values are strings (e.g. '2021', not 2021)
+Generate Python code that:
+1. Processes the data appropriately
+2. Creates a visualization
+3. Provides a text summary
 
-The code MUST follow this exact structure:
+Return only the Python code block, no explanations. The code should be complete and ready to execute.
+Use this format:
 ```python
-import matplotlib.pyplot as plt
-import seaborn as sns
-import numpy as np
-
-# Setup style
-plt.style.use('dark_background')
-sns.set_theme(style='darkgrid')
-plt.rcParams['figure.figsize'] = [12, 6]
-plt.rcParams['figure.dpi'] = 100
-plt.rcParams['savefig.dpi'] = 100
-plt.rcParams['font.size'] = 12
-plt.rcParams['axes.titlesize'] = 14
-plt.rcParams['axes.labelsize'] = 12
-plt.rcParams['xtick.labelsize'] = 10
-plt.rcParams['ytick.labelsize'] = 10
+# Data processing
+[processing code]
 
 # Create visualization
-plt.figure(figsize=(12, 6))
+[visualization code]
 
-# Your visualization code here using the 'data' DataFrame
-# Example for performance trend:
-# sns.lineplot(data=data, x='season', y='points', marker='o')
-# plt.title('Performance Trend')
-# plt.xlabel('Season')
-# plt.ylabel('Points')
-
-# IMPORTANT: When checking seasons, use string values
-# Example:
-# required_seasons = ['2021', '2022', '2023']  # Use strings, not integers
-# available_seasons = data['season'].unique()
-# missing_seasons = set(required_seasons) - set(available_seasons)
-
-# Add any necessary text output
-output = "Analysis summary: ..."
-```
-
-Key requirements:
-- Use the exact DataFrame column names shown in the info
-- Create clear visualizations with proper titles and labels
-- Include a text summary in the 'output' variable
-- NO plt.savefig() calls - handled externally
-- Always handle seasons as strings, not integers
-
-Respond ONLY with the Python code block. Start with ```python and end with ```.
-'''
-    return prompt
+# Generate summary
+output = "[summary text]"
+```"""
 
 def stable_prompt_with_error(df, question: str, error_message: str, previous_code: Optional[str] = None) -> str:
     """Generate a prompt for error correction in F1 data analysis"""
