@@ -3,13 +3,10 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost
 
 // API endpoints
 export const ENDPOINTS = {
-  CONNECT_USER: `${API_BASE_URL}/connect_user`,
+  PROCESS_QUERY: `${API_BASE_URL}/process_query`,
   FETCH_DATA: `${API_BASE_URL}/fetch_data`,
-  LOAD_DATA: `${API_BASE_URL}/load_data`,
-  GENERATE_CODE: `${API_BASE_URL}/generate_code`,
-  EXECUTE_CODE: `${API_BASE_URL}/execute_code`,
-  QUERY_GUIDANCE: `${API_BASE_URL}/query_guidance`,
-  PLAYER_DASHBOARD: `${API_BASE_URL}/player_dashboard`,
+  ANALYZE_DATA: `${API_BASE_URL}/analyze_data`,
+  QUERY_HISTORY: `${API_BASE_URL}/query_history`,
 }
 
 // API types
@@ -19,19 +16,43 @@ export interface ApiResponse<T = any> {
   detail?: string
 }
 
-export interface UserStats {
-  username: string
-  // Add other user stats fields from the backend response
+export interface QueryRequirements {
+  endpoint: string
+  params: {
+    season?: string | string[]
+    driver?: string | string[]
+    constructor?: string
+  }
 }
 
-export interface TypeRacerData {
-  // Add fields from the backend response for race data
-  speed: number
-  accuracy: number
-  time: number
-  rank?: number
-  game_entry: number
-  text_id?: number
-  skill_level?: string
-  num_players?: number
+export interface DriverData {
+  driverId: string
+  givenName: string
+  familyName: string
+  points: number
+  position: number
+  wins: number
+  podiums: number
+}
+
+export interface QualifyingData {
+  driverId: string
+  position: number
+  q1?: string
+  q2?: string
+  q3?: string
+}
+
+export interface LapTimeData {
+  driverId: string
+  lap: number
+  position: number
+  time: string
+}
+
+export interface AnalysisResult {
+  summary?: string
+  data?: any
+  visualization?: string
+  rawData?: any
 } 
