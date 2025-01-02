@@ -1,5 +1,51 @@
 # Key Decisions & Interventions Log
 
+
+## 2025-01-03
+I'll create a summary of the backlog items we identified:
+
+1. **Data Conversion Optimization**
+   - Current: JSON → DataFrame → JSON conversion cycle
+   - Problem: Unnecessary data transformations
+   - Solution: Streamline data flow to minimize conversions
+   - Impact: Improved performance and reduced processing overhead
+
+2. **PostgreSQL Integration**
+   - Move to persistent database storage
+   - Benefits:
+     - Raw data table viewing in frontend
+     - Better data persistence
+     - Improved query performance
+     - Data integrity management
+   - Requirements:
+     - Data migration plan
+     - Update data pipeline
+     - Connection pooling setup
+
+3. **Frontend Enhancements**
+   - Add visualization/raw data table toggle
+   - Implement client-side data filtering
+   - Add data export functionality
+   - Improve error handling display
+
+4. **API Response Structure Update**
+   ```typescript
+   {
+     status: "success" | "error",
+     data: {
+       rawData: DataFrame,    // For table view
+       visualization: base64,  // For charts
+       summary: string,       // Text analysis
+       error?: string        // Detailed error info
+     }
+   }
+   ```
+
+These items are now documented for future consideration, and we'll continue with the current implementation until these optimizations become necessary.
+
+
+
+
 ## 1. Architecture Decisions
 
 ### 1.1 Component Separation

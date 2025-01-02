@@ -9,4 +9,33 @@ Goal: Can we test 8 queries for query to visuals?
 - Time taken per query: 30 seconds
 
 ## w5.3.414 (proposed)
-Goal: Can we increase the test query count to 8*5= 40 queries?
+Goal: Can we go full-stack?
+- API Success Rate: 100%
+- DataFrame Conversion: 100%
+- Analysis Code Generation: 100%
+- Visualization: 50%*
+- Time taken per query: 30 seconds
+
+*Visualization is not working as expected.
+- Data Conversion Optimization
+Current: JSON → DataFrame → JSON conversion cycle
+Problem: Unnecessary data transformations
+Solution: Streamline data flow to minimize conversions
+Impact: Improved performance and reduced processing overhead
+
+- PostgreSQL Integration
+Current: In-memory data storage
+Problem: Data loss on server restart
+Solution: Move to persistent database storage
+Impact: Improved data persistence and query performance
+
+Pipeline (data2.py):
+Receives JSON from Ergast API
+Converts JSON → DataFrame for data processing
+Returns DataFrame
+FastAPI endpoint (main.py):
+Receives DataFrame
+Converts DataFrame → JSON for API response
+Frontend:
+Receives JSON
+Uses it for visualization
