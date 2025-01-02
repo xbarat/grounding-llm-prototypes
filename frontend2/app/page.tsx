@@ -6,20 +6,20 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { QueryResults } from '@/components/query-results'
-import { ENDPOINTS } from '@/lib/config'
+import { ENDPOINTS, type ApiResponse, type QueryRequirements, type AnalysisResult } from '@/lib/config'
 
-// Example queries that worked well in our testing
+// Example F1 queries that showcase our analysis capabilities
 const EXAMPLE_QUERIES = [
-  "Show my average WPM for the last 10 races",
-  "Plot my WPM trend over time",
-  "Calculate my accuracy trend",
-  "Show my performance by time of day"
+  "Show Max Verstappen's performance trend from 2021 to 2023",
+  "Compare Lewis Hamilton's points progression across 2021-2023 seasons",
+  "How has Fernando Alonso's average finishing position changed from 2021 to 2023?",
+  "Show Charles Leclerc's qualifying performance trend from 2021 to 2023"
 ]
 
 export default function Page() {
   const [query, setQuery] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [results, setResults] = useState<any>(null)
+  const [results, setResults] = useState<AnalysisResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,35 +31,59 @@ export default function Page() {
     setResults(null)
 
     try {
-      // First, generate code
-      const generateResponse = await fetch(ENDPOINTS.GENERATE_CODE, {
+      // Step 1: Process the natural language query
+      const processResponse = await fetch(ENDPOINTS.PROCESS_QUERY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query })
       })
 
-      const generateData = await generateResponse.json()
-      if (generateData.status !== 'success') {
-        throw new Error(generateData.detail || 'Failed to generate code')
+      const processData: ApiResponse<QueryRequirements> = await processResponse.json()
+      if (processData.status !== 'success' || !processData.data) {
+        throw new Error(processData.detail || 'Failed to process query')
       }
 
-      // Then execute the generated code
-      const executeResponse = await fetch(ENDPOINTS.EXECUTE_CODE, {
+      // Step 2: Fetch F1 data based on requirements
+      const fetchResponse = await fetch(ENDPOINTS.FETCH_DATA, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: generateData.data.code })
+        body: JSON.stringify(processData.data)
       })
 
-      const executeData = await executeResponse.json()
-      if (executeData.status !== 'success') {
-        throw new Error(executeData.detail || 'Failed to execute code')
+      const fetchData: ApiResponse<any> = await fetchResponse.json()
+      if (fetchData.status !== 'success' || !fetchData.data) {
+        throw new Error(fetchData.detail || 'Failed to fetch data')
       }
 
-      setResults({
-        result: executeData.data.result,
-        figure: executeData.data.figure,
-        code: generateData.data.code
+      // Step 3: Generate analysis and visualization
+      const analyzeResponse = await fetch(ENDPOINTS.ANALYZE_DATA, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          data: fetchData.data,
+          requirements: processData.data
+        })
       })
+
+      const analyzeData: ApiResponse<AnalysisResult> = await analyzeResponse.json()
+      if (analyzeData.status !== 'success' || !analyzeData.data) {
+        throw new Error(analyzeData.detail || 'Failed to analyze data')
+      }
+
+      setResults(analyzeData.data)
+
+      // Step 4: Save to query history (optional)
+      fetch(ENDPOINTS.QUERY_HISTORY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          requirements: processData.data,
+          result: analyzeData.data
+        })
+      }).catch(console.error) // Non-blocking
+
     } catch (err) {
       console.error('Analysis error:', err)
       setError(err instanceof Error ? err.message : 'Failed to analyze data')
@@ -72,7 +96,7 @@ export default function Page() {
     <div className="flex flex-col min-h-screen bg-[#1C1C1C] text-white">
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
         <h1 className="text-4xl font-semibold mb-8 text-white/90">
-          What graphs do you want to visualize?
+          Ask anything, See the answer
         </h1>
 
         <form onSubmit={handleSubmit} className="w-full max-w-[600px] mb-8">
@@ -80,7 +104,7 @@ export default function Page() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ask anything..."
+              placeholder="Ask about F1 performance, trends, and statistics..."
               className="w-full bg-[#2C2C2C] border-0 h-12 pl-4 pr-12 rounded-xl placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-white/20"
             />
             <Button 
@@ -99,6 +123,7 @@ export default function Page() {
             <div className="animate-pulse space-y-4 p-4">
               <div className="h-4 bg-white/10 rounded w-3/4" />
               <div className="h-4 bg-white/10 rounded w-1/2" />
+              <div className="h-32 bg-white/10 rounded" />
             </div>
           </Card>
         )}
@@ -111,18 +136,21 @@ export default function Page() {
 
         {results && <QueryResults results={results} />}
 
-        <div className="w-full max-w-[600px] bg-transparent border border-white/10 rounded-xl p-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {EXAMPLE_QUERIES.map((example, index) => (
-              <Button 
-                key={index}
-                variant="ghost" 
-                className="w-full justify-start gap-2 text-white/60 hover:text-white"
-                onClick={() => setQuery(example)}
-              >
-                {example}
-              </Button>
-            ))}
+        <div className="w-full max-w-[600px] mt-8">
+          <h3 className="text-sm text-white/60 mb-2 px-2">Try these examples:</h3>
+          <div className="bg-transparent border border-white/10 rounded-xl p-2">
+            <div className="grid grid-cols-1 gap-2">
+              {EXAMPLE_QUERIES.map((example, index) => (
+                <Button 
+                  key={index}
+                  variant="ghost" 
+                  className="w-full justify-start gap-2 text-white/60 hover:text-white text-sm"
+                  onClick={() => setQuery(example)}
+                >
+                  {example}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
