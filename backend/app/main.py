@@ -1,7 +1,10 @@
 """Main application integrating F1 data pipeline with analysis"""
 import asyncio
 import logging
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Optional
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import pandas as pd
 from app.pipeline.data2 import DataPipeline, DataRequirements, DataResponse
 from app.analyst.generate import generate_code, extract_code_block, execute_code_safely
@@ -9,6 +12,27 @@ from app.analyst.generate import generate_code, extract_code_block, execute_code
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize FastAPI app
+app = FastAPI(title="F1 Data Analysis API")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Request/Response Models
+class QueryRequest(BaseModel):
+    query: str
+
+class QueryResponse(BaseModel):
+    status: str
+    data: Optional[Dict[str, Any]] = None
+    detail: Optional[str] = None
 
 async def analyze_f1_data(query: str, requirements: DataRequirements) -> Dict[str, Any]:
     """Process an F1 query from data retrieval through analysis"""
@@ -189,6 +213,113 @@ async def test_analysis():
                 print(f"  Error: {result['error']}")
                 logger.error(f"Failed query: {query}")
                 logger.error(f"Error details: {result['details']}")
+
+# API Endpoints
+@app.post("/api/v1/process_query", response_model=QueryResponse)
+async def process_query(request: QueryRequest):
+    """Process a natural language query and return data requirements"""
+    try:
+        requirements = get_requirements_for_query(request.query)
+        return {
+            "status": "success",
+            "data": {
+                "endpoint": requirements.endpoint,
+                "params": requirements.params
+            }
+        }
+    except Exception as e:
+        logger.exception("Error processing query")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/fetch_data", response_model=QueryResponse)
+async def fetch_data(requirements: DataRequirements):
+    """Fetch F1 data based on requirements"""
+    try:
+        pipeline = DataPipeline()
+        response = await pipeline.process(requirements)
+        
+        if not response.success or not response.data:
+            return {
+                "status": "error",
+                "detail": response.error or "No data returned"
+            }
+            
+        # Convert DataFrame to dictionary
+        serialized_data = {}
+        for key, df in response.data.items():
+            if isinstance(df, pd.DataFrame):
+                serialized_data[key] = df.to_dict(orient='records')
+            else:
+                serialized_data[key] = df
+            
+        return {
+            "status": "success",
+            "data": serialized_data
+        }
+    except Exception as e:
+        logger.exception("Error fetching data")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/analyze_data", response_model=QueryResponse)
+async def analyze_data(request: Dict[str, Any]):
+    """Generate analysis and visualization from F1 data"""
+    try:
+        query = request.get("query")
+        data = request.get("data")
+        requirements = request.get("requirements", {})
+        
+        if not all([query, data, requirements]):
+            raise ValueError("Missing required fields")
+        
+        if not isinstance(query, str):
+            raise ValueError("Query must be a string")
+            
+        endpoint = requirements.get("endpoint")
+        params = requirements.get("params", {})
+        
+        if not endpoint:
+            raise ValueError("Missing endpoint in requirements")
+            
+        requirements_obj = DataRequirements(
+            endpoint=endpoint,
+            params=params
+        )
+            
+        result = await analyze_f1_data(query, requirements_obj)
+        
+        if not result["success"]:
+            return {
+                "status": "error",
+                "detail": result["error"]
+            }
+            
+        return {
+            "status": "success",
+            "data": {
+                "summary": result["data"].get("output"),
+                "visualization": result["data"].get("figure"),
+                "data": result["data"].get("data"),
+                "rawData": data
+            }
+        }
+    except Exception as e:
+        logger.exception("Error analyzing data")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/query_history", response_model=QueryResponse)
+async def save_query_history(request: Dict[str, Any]):
+    """Save query and results to history"""
+    try:
+        # For now, just log the query and return success
+        # In a real implementation, this would save to a database
+        logger.info(f"Saving query to history: {request.get('query')}")
+        return {
+            "status": "success",
+            "data": {"saved": True}
+        }
+    except Exception as e:
+        logger.exception("Error saving query history")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     asyncio.run(test_analysis()) 

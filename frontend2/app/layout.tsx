@@ -1,14 +1,11 @@
 import type { Metadata } from 'next'
-import { GeistSans } from 'geist/font/sans'
-import { GeistMono } from 'geist/font/mono'
 import './globals.css'
-
 import { Sidebar } from '@/components/sidebar'
 import { ThemeProvider } from '@/components/theme-provider'
 
 export const metadata: Metadata = {
-  title: 'Perplexity Clone',
-  description: 'A clone of Perplexity AI interface',
+  title: 'F1 Data Analysis',
+  description: 'Interactive F1 data analysis and visualization platform',
 }
 
 export default function RootLayout({
@@ -18,7 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}>
+      <body className="font-sans antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
