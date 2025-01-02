@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Table } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import Image from 'next/image'
@@ -10,33 +10,48 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { type AnalysisResult } from '@/lib/config'
 
 interface QueryResultsProps {
-  results: {
-    result?: any;
-    figure?: string;
-    code?: string;
-  }
+  results: AnalysisResult
 }
 
 export function QueryResults({ results }: QueryResultsProps) {
-  const [isOpen, setIsOpen] = useState(true)
+  const [isDataOpen, setIsDataOpen] = useState(false)
 
   return (
-    <Card className="w-full max-w-[600px] bg-[#2C2C2C] border-0 p-4">
-      <div className="prose dark:prose-invert max-w-none">
-        {results.result && (
-          <pre className="text-sm text-white/80 overflow-auto">
-            <code>{JSON.stringify(results.result, null, 2)}</code>
-          </pre>
+    <Card className="w-full max-w-[800px] bg-card border-border">
+      <div className="p-6 space-y-6">
+        {results.summary && (
+          <div className="prose dark:prose-invert max-w-none">
+            <p className="text-lg text-foreground">{results.summary}</p>
+          </div>
         )}
 
-        {results.code && (
-          <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        {results.visualization && (
+          <div>
+            <h3 className="text-lg font-semibold mb-4 text-foreground">Visualization</h3>
+            <div className="relative w-full h-[500px] bg-muted rounded-lg overflow-hidden">
+              <Image
+                src={`data:image/png;base64,${results.visualization}`}
+                alt="F1 Analysis Visualization"
+                fill
+                style={{ objectFit: 'contain' }}
+                priority
+              />
+            </div>
+          </div>
+        )}
+
+        {results.data && (
+          <Collapsible open={isDataOpen} onOpenChange={setIsDataOpen}>
             <CollapsibleTrigger asChild>
               <Button variant="outline" className="w-full justify-between">
-                View Code
-                {isOpen ? (
+                <div className="flex items-center gap-2">
+                  <Table className="h-4 w-4" />
+                  View Data
+                </div>
+                {isDataOpen ? (
                   <ChevronUp className="h-4 w-4" />
                 ) : (
                   <ChevronDown className="h-4 w-4" />
@@ -44,24 +59,18 @@ export function QueryResults({ results }: QueryResultsProps) {
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-4">
-              <pre className="bg-muted p-4 rounded-lg overflow-x-auto">
-                <code>{results.code}</code>
-              </pre>
+              <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+                <pre className="text-sm text-muted-foreground">
+                  <code>{JSON.stringify(results.data, null, 2)}</code>
+                </pre>
+              </div>
             </CollapsibleContent>
           </Collapsible>
         )}
 
-        {results.figure && (
-          <div className="mt-4">
-            <h3 className="text-lg font-semibold mb-2">Visualization</h3>
-            <div className="relative w-full h-[400px] bg-[#1C1C1C] rounded-lg overflow-hidden">
-              <Image
-                src={`data:image/png;base64,${results.figure}`}
-                alt="Analysis Result"
-                fill
-                style={{ objectFit: 'contain' }}
-              />
-            </div>
+        {results.rawData && (
+          <div className="text-xs text-muted-foreground">
+            <p>Raw data available for download</p>
           </div>
         )}
       </div>
