@@ -1,0 +1,27 @@
+# Changelog
+
+## 2025-01-03
+- Created and ran a comprehensive test suite that validates:
+  - Query processing
+  - Data retrieval and transformation
+  - Code generation
+  - Code execution
+  - Results validation
+- Tests covered various aspects of F1 data analysis:
+  - Driver performance trends
+  - Points progression
+  - Qualifying performance
+  - Season-long development
+  - Rookie progression
+- All 8 test cases passed successfully, with only one minor warning about a legend label in one of the plots.
+- The test suite took about 4 minutes to complete, which is reasonable given that each test:
+  - Makes API calls to fetch data
+  - Processes and transforms the data
+  - Generates and executes analysis code
+  - Creates visualizations
+- Metrics:
+  - API Success Rate: 100%
+  - DataFrame Conversion: 100%
+  - Circuit Queries: Fully functional
+  - Time taken per test: 240/8 = 30 seconds per test (which is decent baseline)
+

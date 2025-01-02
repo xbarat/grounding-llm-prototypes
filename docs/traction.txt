@@ -1,0 +1,12 @@
+# Traction
+
+## w5.2.413
+Goal: Can we test 8 queries for query to visuals?
+- API Success Rate: 100%
+- DataFrame Conversion: 100%
+- Analysis Code Generation: 100%
+- Visualization: 100%
+- Time taken per query: 30 seconds
+
+## w5.3.414 (proposed)
+Goal: Can we increase the test query count to 8*5= 40 queries?
