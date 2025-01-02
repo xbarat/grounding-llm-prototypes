@@ -10,7 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from anthropic import Anthropic
-from .prompts import f1_prompt, stable_prompt_with_error, stable_prompt
+from .prompts import f1_prompt, stable_prompt_with_error, custom_prompt
 import io
 import base64
 import numpy as np

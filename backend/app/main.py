@@ -8,6 +8,7 @@ from pydantic import BaseModel
 import pandas as pd
 from app.pipeline.data2 import DataPipeline, DataRequirements, DataResponse
 from app.analyst.generate import generate_code, extract_code_block, execute_code_safely
+import re
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -104,19 +105,28 @@ def get_requirements_for_query(query: str) -> DataRequirements:
     query = query.lower()
     logger.info(f"Generating requirements for query: {query}")
     
-    # Extract year ranges
+    # Extract year ranges using regex patterns
     years = []
-    if "from" in query and "to" in query:
-        try:
-            start_year = int(query.split("from")[1].split("to")[0].strip())
-            end_year = int(query.split("to")[1].split()[0].strip())
+    # Pattern 1: "YYYY-YYYY" (e.g., "2021-2023")
+    year_range_match = re.search(r'(\d{4})-(\d{4})', query)
+    if year_range_match:
+        start_year = int(year_range_match.group(1))
+        end_year = int(year_range_match.group(2))
+        years = [str(year) for year in range(start_year, end_year + 1)]
+        logger.info(f"Year range detected: {start_year} to {end_year}")
+    # Pattern 2: "from YYYY to YYYY" or "YYYY to YYYY"
+    elif "to" in query:
+        # Try to find two years around "to"
+        year_pattern = r'(\d{4}).*?to.*?(\d{4})'
+        to_match = re.search(year_pattern, query)
+        if to_match:
+            start_year = int(to_match.group(1))
+            end_year = int(to_match.group(2))
             years = [str(year) for year in range(start_year, end_year + 1)]
             logger.info(f"Year range detected: {start_year} to {end_year}")
-        except ValueError:
-            years = ["2023"]  # Default to current season if parsing fails
     
     # Default parameters
-    params = {"season": years if years else "2023"}
+    params = {"season": years if years else ["2023"]}  # Always use list for seasons
     endpoint = "/api/f1/drivers"
     
     # Extract driver name if present
@@ -129,18 +139,18 @@ def get_requirements_for_query(query: str) -> DataRequirements:
         "george russell": "russell",
     }.items():
         if driver in query:
-            params["driver"] = api_id
+            params["driver"] = [api_id]  # Use list for driver
             logger.info(f"Driver found: {driver} -> {api_id}")
             break
     
     # Check for constructor queries
     if "red bull" in query:
         endpoint = "/api/f1/constructors"
-        params["constructor"] = "red_bull"
+        params["constructor"] = ["red_bull"]  # Use list for constructor
         logger.info("Constructor: Red Bull")
     elif "mercedes" in query:
         endpoint = "/api/f1/constructors"
-        params["constructor"] = "mercedes"
+        params["constructor"] = ["mercedes"]  # Use list for constructor
         logger.info("Constructor: Mercedes")
     
     requirements = DataRequirements(endpoint=endpoint, params=params)
