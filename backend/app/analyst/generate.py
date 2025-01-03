@@ -55,17 +55,24 @@ def extract_code_block(response: str) -> Optional[str]:
 def execute_code_safely(code: str, data: pd.DataFrame) -> Tuple[bool, Dict[str, Any], str]:
     """Execute generated code in a safe environment"""
     try:
+        # Print the code being executed for debugging
+        print("\nExecuting code:")
+        print(code)
+        
         # Create variable mapper and preprocess code
         mapper = VariableMapper(data)
         modified_code, used_mappings = preprocess_code(code, mapper)
+        
+        print("\nPreprocessed code:")
+        print(modified_code)
         
         # Create a new globals dict with limited access
         globals_dict = {
             'pd': pd,
             'plt': plt,
             'np': np,
-            'data': data,
-            'df': data,  # Add df reference since some code might use it
+            'data': data.copy(),  # Use a copy to prevent modifications to original
+            'df': data.copy(),    # Add df reference since some code might use it
             'print': print,
             'sns': sns
         }
@@ -76,6 +83,28 @@ def execute_code_safely(code: str, data: pd.DataFrame) -> Tuple[bool, Dict[str, 
                 "success": False,
                 "error": "No data available for visualization"
             }, modified_code
+        
+        # Convert season to numeric if it exists
+        if 'season' in data.columns:
+            try:
+                globals_dict['data']['season'] = pd.to_numeric(globals_dict['data']['season'])
+                globals_dict['df']['season'] = pd.to_numeric(globals_dict['df']['season'])
+                print("\nConverted season to numeric successfully")
+            except Exception as e:
+                print(f"\nError converting season to numeric: {str(e)}")
+                
+        # Convert round to numeric if it exists
+        if 'round' in data.columns:
+            try:
+                globals_dict['data']['round'] = pd.to_numeric(globals_dict['data']['round'])
+                globals_dict['df']['round'] = pd.to_numeric(globals_dict['df']['round'])
+                print("\nConverted round to numeric successfully")
+            except Exception as e:
+                print(f"\nError converting round to numeric: {str(e)}")
+            
+        # Print data types for debugging
+        print("\nData Types Before Execution:")
+        print(globals_dict['data'].dtypes)
             
         # Execute the preprocessed code
         exec(modified_code, globals_dict)
@@ -104,11 +133,16 @@ def execute_code_safely(code: str, data: pd.DataFrame) -> Tuple[bool, Dict[str, 
             "success": True,
             "output": output,
             "figure": image_base64,
-            "data": data.to_dict('records') if isinstance(data, pd.DataFrame) else data
+            "data": globals_dict['data'].to_dict('records') if isinstance(globals_dict['data'], pd.DataFrame) else globals_dict['data']
         }, modified_code
         
     except Exception as e:
         error_msg = f"Error executing code: {str(e)}\n{traceback.format_exc()}"
+        print("\nError Details:")
+        print(error_msg)
+        print("\nData shape:", data.shape)
+        print("\nData columns:", data.columns.tolist())
+        print("\nData sample:", data.head())
         return False, {
             "success": False,
             "error": error_msg
