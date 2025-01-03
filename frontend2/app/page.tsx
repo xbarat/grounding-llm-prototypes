@@ -17,18 +17,26 @@ const EXAMPLE_QUERIES = [
   "Show Charles Leclerc's qualifying performance trend from 2021 to 2023"
 ]
 
+interface QueryThread {
+  id: string;
+  query: string;
+  result: AnalysisResult;
+  isFollowUp: boolean;
+}
+
 export default function Page() {
   const [query, setQuery] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [results, setResults] = useState<AnalysisResult | null>(null)
+  const [queryThread, setQueryThread] = useState<QueryThread[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [followUpQuery, setFollowUpQuery] = useState('')
+  const [isSubmittingFollowUp, setIsSubmittingFollowUp] = useState(false)
 
   const handleAnalysis = async (queryText: string, isFollowUp: boolean = false) => {
     if (!queryText.trim()) return
 
     setIsLoading(true)
     setError(null)
-    if (!isFollowUp) setResults(null)
 
     try {
       if (!isFollowUp) {
@@ -72,7 +80,12 @@ export default function Page() {
           throw new Error(analyzeData.detail || 'Failed to analyze data')
         }
 
-        setResults(analyzeData.data)
+        setQueryThread([{
+          id: Date.now().toString(),
+          query: queryText,
+          result: analyzeData.data,
+          isFollowUp: false
+        }])
 
         // Step 4: Save to query history (optional)
         fetch(ENDPOINTS.QUERY_HISTORY, {
@@ -91,7 +104,7 @@ export default function Page() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             query: queryText,
-            data: results?.rawData,
+            data: queryThread[queryThread.length - 1].result.rawData,
             requirements: {
               endpoint: '/api/f1/follow-up',
               params: {}
@@ -104,7 +117,12 @@ export default function Page() {
           throw new Error(analyzeData.detail || 'Failed to analyze data')
         }
 
-        setResults(analyzeData.data)
+        setQueryThread(prev => [...prev, {
+          id: Date.now().toString(),
+          query: queryText,
+          result: analyzeData.data,
+          isFollowUp: true
+        } as QueryThread])
       }
     } catch (err) {
       console.error('Analysis error:', err)
@@ -119,73 +137,118 @@ export default function Page() {
     await handleAnalysis(query)
   }
 
-  const handleFollowUpQuery = async (followUpQuery: string) => {
+  const handleFollowUpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!followUpQuery.trim()) return
+    setIsSubmittingFollowUp(true)
     await handleAnalysis(followUpQuery, true)
+    setFollowUpQuery('')
+    setIsSubmittingFollowUp(false)
   }
 
   return (
     <div className="flex flex-col min-h-screen bg-[#1C1C1C] text-white">
       <div className="flex h-screen">
-        <Sidebar currentResults={results} onFollowUpQuery={handleFollowUpQuery} />
-        <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
-          <h1 className="text-4xl font-semibold mb-8 text-white/90">
-            Ask anything, See the answer
-          </h1>
+        <Sidebar />
+        <div className="flex-1 flex flex-col px-4 py-12 relative overflow-y-auto">
+          <div className="max-w-[800px] mx-auto w-full mb-24">
+            {queryThread.length === 0 && (
+              <>
+                <h1 className="text-4xl font-semibold mb-8 text-white/90 text-center">
+                  Ask anything, See the answer
+                </h1>
 
-          <form onSubmit={handleSubmit} className="w-full max-w-[600px] mb-8">
-            <div className="relative">
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Ask about F1 performance, trends, and statistics..."
-                className="w-full bg-[#2C2C2C] border-0 h-12 pl-4 pr-12 rounded-xl placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-white/20"
-              />
-              <Button 
-                size="icon" 
-                type="submit" 
-                disabled={isLoading}
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center"
-              >
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </form>
+                <form onSubmit={handleSubmit} className="w-full max-w-[600px] mx-auto mb-8">
+                  <div className="relative">
+                    <Input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Ask about F1 performance, trends, and statistics..."
+                      className="w-full bg-[#2C2C2C] border-0 h-12 pl-4 pr-12 rounded-xl placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-white/20"
+                    />
+                    <Button 
+                      size="icon" 
+                      type="submit" 
+                      disabled={isLoading}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center"
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </form>
 
-          {isLoading && (
-            <Card className="w-full max-w-[600px] bg-[#2C2C2C] border-0">
-              <div className="animate-pulse space-y-4 p-4">
-                <div className="h-4 bg-white/10 rounded w-3/4" />
-                <div className="h-4 bg-white/10 rounded w-1/2" />
-                <div className="h-32 bg-white/10 rounded" />
+                <div className="w-full max-w-[600px] mx-auto mt-8">
+                  <h3 className="text-sm text-white/60 mb-2 px-2">Try these examples:</h3>
+                  <div className="bg-transparent border border-white/10 rounded-xl p-2">
+                    <div className="grid grid-cols-1 gap-2">
+                      {EXAMPLE_QUERIES.map((example, index) => (
+                        <Button 
+                          key={index}
+                          variant="ghost" 
+                          className="w-full justify-start gap-2 text-white/60 hover:text-white text-sm"
+                          onClick={() => setQuery(example)}
+                        >
+                          {example}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {queryThread.map((item, index) => (
+              <div key={item.id} className="mb-8">
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="text-sm text-white/60">
+                    {item.isFollowUp ? 'Follow-up Query:' : 'Initial Query:'}
+                  </div>
+                  <div className="text-sm font-medium">{item.query}</div>
+                </div>
+                <QueryResults results={item.result} />
               </div>
-            </Card>
-          )}
+            ))}
 
-          {error && (
-            <Card className="w-full max-w-[600px] bg-[#2C2C2C] border-0 p-4">
-              <p className="text-red-400">{error}</p>
-            </Card>
-          )}
+            {isLoading && (
+              <Card className="w-full bg-[#2C2C2C] border-0 mb-8">
+                <div className="animate-pulse space-y-4 p-4">
+                  <div className="h-4 bg-white/10 rounded w-3/4" />
+                  <div className="h-4 bg-white/10 rounded w-1/2" />
+                  <div className="h-32 bg-white/10 rounded" />
+                </div>
+              </Card>
+            )}
 
-          {results && <QueryResults results={results} />}
-
-          <div className="w-full max-w-[600px] mt-8">
-            <h3 className="text-sm text-white/60 mb-2 px-2">Try these examples:</h3>
-            <div className="bg-transparent border border-white/10 rounded-xl p-2">
-              <div className="grid grid-cols-1 gap-2">
-                {EXAMPLE_QUERIES.map((example, index) => (
-                  <Button 
-                    key={index}
-                    variant="ghost" 
-                    className="w-full justify-start gap-2 text-white/60 hover:text-white text-sm"
-                    onClick={() => setQuery(example)}
-                  >
-                    {example}
-                  </Button>
-                ))}
-              </div>
-            </div>
+            {error && (
+              <Card className="w-full bg-[#2C2C2C] border-0 p-4 mb-8">
+                <p className="text-red-400">{error}</p>
+              </Card>
+            )}
           </div>
+
+          {queryThread.length > 0 && (
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#1C1C1C] border-t border-white/10">
+              <form onSubmit={handleFollowUpSubmit} className="max-w-[800px] mx-auto">
+                <div className="relative">
+                  <Input
+                    value={followUpQuery}
+                    onChange={(e) => setFollowUpQuery(e.target.value)}
+                    placeholder="Ask a follow-up question..."
+                    className="w-full bg-[#2C2C2C] border-0 h-12 pl-4 pr-12 rounded-xl placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-white/20"
+                    disabled={isSubmittingFollowUp}
+                  />
+                  <Button 
+                    size="icon" 
+                    type="submit"
+                    disabled={isSubmittingFollowUp || !followUpQuery.trim()}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center"
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
       </div>
     </div>
