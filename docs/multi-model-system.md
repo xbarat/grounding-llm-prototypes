@@ -201,8 +201,7 @@ class MetricsLogger:
 # config/models.yaml
 default:
   query_model: gpt4-mini
-  generation_model: claude
-  assistant_model: gpt4-assistant
+  generation_model: claude, gpt4, gpt4-assistant
 
 experimental:
   query_model: gpt4-mini

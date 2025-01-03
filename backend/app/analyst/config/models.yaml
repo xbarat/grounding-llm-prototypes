@@ -1,15 +1,13 @@
 default:
   query_model: gpt4-mini
-  generation_model: claude
-  assistant_model: gpt4-assistant
+  generation_model: gpt4-assistant
   api_keys:
     openai: ${OPENAI_API_KEY}
     anthropic: ${ANTHROPIC_API_KEY}
 
 experimental:
   query_model: gpt4-mini
-  generation_model: gpt4
-  assistant_model: gpt4-assistant
+  generation_model: gpt4-assistant
   api_keys:
     openai: ${OPENAI_API_KEY}
     anthropic: ${ANTHROPIC_API_KEY} 

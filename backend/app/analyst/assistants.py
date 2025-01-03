@@ -13,7 +13,7 @@ def initialize_models(config: Dict[str, Any]):
     # Register models
     ModelClientFactory.register_query_model("gpt4-mini", GPT4Mini)
     ModelClientFactory.register_generation_model("claude", ClaudeModel)
-    ModelClientFactory.register_assistant_model("gpt4-assistant", GPT4Assistant)
+    ModelClientFactory.register_generation_model("gpt4-assistant", GPT4Assistant)
 
     # Create instances based on config
     return {
@@ -23,10 +23,8 @@ def initialize_models(config: Dict[str, Any]):
         ),
         "generation": ModelClientFactory.create_generation_model(
             config["generation_model"],
-            api_key=config.get("api_keys", {}).get("anthropic")
-        ),
-        "assistant": ModelClientFactory.create_assistant_model(
-            config["assistant_model"],
-            api_key=config.get("api_keys", {}).get("openai")
+            api_key=config.get("api_keys", {}).get(
+                "openai" if config["generation_model"] == "gpt4-assistant" else "anthropic"
+            )
         )
     } 
