@@ -14,18 +14,43 @@ import base64
 import numpy as np
 from .variable_mapper import VariableMapper, preprocess_code
 from .models import get_code_generator
+import logging
+from .prompts import f1_prompt
 
-def generate_code(df: pd.DataFrame, query: str, model: str = "gpt4") -> str:
-    """Generate analysis code using specified model"""
-    generator = get_code_generator(model)
-    
-    # Generate prompt using F1-specific visualization prompt
-    from .prompts import f1_prompt
-    prompt = f1_prompt(df, query)
-    
-    # Get response from model
-    content = generator.generate(prompt)
-    return content
+logger = logging.getLogger(__name__)
+
+def generate_code(data: Union[pd.DataFrame, Dict[str, Any]], query: str, is_follow_up: bool = False) -> str:
+    """Generate Python code for F1 data analysis based on the query"""
+    try:
+        # Convert data to DataFrame if it's a dictionary
+        if isinstance(data, dict):
+            df = pd.DataFrame(data)
+        else:
+            df = data
+
+        # Get code generator
+        generator = get_code_generator("gpt4")
+
+        # Add follow-up context to the prompt if needed
+        follow_up_context = """
+This is a follow-up query to a previous analysis. The data provided is from the previous query's results.
+Focus on answering the specific follow-up question using the existing data.
+"""
+
+        # Generate base prompt
+        prompt = f1_prompt(df, query)
+        
+        # Add follow-up context if needed
+        if is_follow_up:
+            prompt += follow_up_context
+
+        # Get response from model
+        content = generator.generate(prompt)
+        return content
+        
+    except Exception as e:
+        logger.exception("Error generating code")
+        return ""
 
 def extract_code_block(response: str) -> Optional[str]:
     """Extract Python code block from model's response"""

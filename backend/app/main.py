@@ -289,7 +289,52 @@ async def analyze_data(request: Dict[str, Any]):
         
         if not endpoint:
             raise ValueError("Missing endpoint in requirements")
+
+        # Special handling for follow-up queries
+        if endpoint == '/api/f1/follow-up':
+            logger.info("Processing follow-up query...")
+            # Convert the existing data back to DataFrame
+            df = pd.DataFrame.from_records(data.get("results", []))
+            if df.empty:
+                return {
+                    "status": "error",
+                    "detail": "No data available for follow-up analysis"
+                }
+
+            # Generate analysis code for the follow-up query
+            logger.info("Generating follow-up analysis code...")
+            code_response = generate_code(df, query, is_follow_up=True)
+            code = extract_code_block(code_response)
             
+            if not code:
+                logger.error("No code block found in follow-up response")
+                return {
+                    "status": "error",
+                    "detail": "Failed to generate follow-up analysis"
+                }
+            
+            # Execute the follow-up analysis
+            logger.info("Executing follow-up analysis code...")
+            success, result, modified_code = execute_code_safely(code, df)
+            
+            if not success:
+                logger.error(f"Follow-up code execution failed: {result}")
+                return {
+                    "status": "error",
+                    "detail": result
+                }
+            
+            return {
+                "status": "success",
+                "data": {
+                    "summary": result.get("output"),
+                    "visualization": result.get("figure"),
+                    "data": result.get("data"),
+                    "rawData": data
+                }
+            }
+            
+        # Regular query processing
         requirements_obj = DataRequirements(
             endpoint=endpoint,
             params=params

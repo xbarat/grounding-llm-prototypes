@@ -43,6 +43,16 @@ class F1AnalysisEventHandler(AsyncAssistantEventHandler):
                             self.code_output += output.text + "\n"
 
 class GPT4Assistant(BaseGenerationModel):
+    _instances: Dict[str, 'GPT4Assistant'] = {}
+    
+    @classmethod
+    def get_instance(cls, api_key: str, model: str = "gpt-4") -> 'GPT4Assistant':
+        """Get or create a singleton instance for the given API key."""
+        key = f"{api_key}_{model}"
+        if key not in cls._instances:
+            cls._instances[key] = cls(api_key, model)
+        return cls._instances[key]
+
     def __init__(self, api_key: str, model: str = "gpt-4"):
         self.client = AsyncOpenAI(api_key=api_key)
         self.model = model
@@ -50,6 +60,8 @@ class GPT4Assistant(BaseGenerationModel):
         self.thread: Optional[Any] = None
         self.current_df = None
         self.file_ids: List[str] = []
+        self.last_query: Optional[str] = None
+        self.last_data: Optional[Dict[str, pd.DataFrame]] = None
         
     async def setup_assistant(self, file_ids: Optional[List[str]] = None):
         """Create or get the assistant with appropriate configuration."""
@@ -66,8 +78,10 @@ class GPT4Assistant(BaseGenerationModel):
                 3. Provide clear explanations of the analysis
                 4. Follow best practices for data visualization
                 5. Handle data cleaning and preprocessing
+                6. Maintain context between queries and refer to previous analyses
                 
                 Always use pandas for data manipulation and seaborn/matplotlib for visualization.
+                When handling follow-up queries, refer to previous analyses and data.
                 """
             }
             if file_ids:
@@ -76,8 +90,9 @@ class GPT4Assistant(BaseGenerationModel):
             self.assistant = await self.client.beta.assistants.create(**create_params)
 
     async def create_thread(self):
-        """Create a new conversation thread."""
-        self.thread = await self.client.beta.threads.create()
+        """Create a new conversation thread if none exists."""
+        if not self.thread:
+            self.thread = await self.client.beta.threads.create()
 
     async def upload_dataframe(self, df: pd.DataFrame) -> str:
         """Upload DataFrame as a file for the assistant."""
@@ -94,31 +109,43 @@ class GPT4Assistant(BaseGenerationModel):
     async def code_generation(self, data: Dict[str, pd.DataFrame], requirements: Dict[str, Any]) -> str:
         """Generate analysis code using the Assistant."""
         try:
-            # Upload the DataFrame
-            if data:
+            is_follow_up = (
+                self.last_query is not None and
+                self.last_data is not None and
+                self.thread is not None and
+                data == self.last_data
+            )
+            
+            # Upload the DataFrame if it's new data
+            if not is_follow_up and data:
+                # Clean up old files first
+                await self.cleanup_files()
+                
                 main_df = next(iter(data.values()))
                 file_id = await self.upload_dataframe(main_df)
                 self.file_ids.append(file_id)
                 await self.setup_assistant(file_ids=[file_id])
-            else:
-                await self.setup_assistant()
+                self.last_data = data
             
-            # Create new thread
-            if not self.thread:
-                await self.create_thread()
+            # Create new thread if none exists
+            await self.create_thread()
             
             if not self.thread or not self.assistant:
                 raise RuntimeError("Failed to initialize thread or assistant")
             
             # Create the analysis prompt
+            query = requirements.get('query', '')
+            self.last_query = query
+            
             prompt = f"""
-            Analyze the F1 race data in the uploaded CSV file and generate Python code to visualize the following:
-            {requirements.get('query', '')}
+            {'Follow-up request: ' if is_follow_up else 'New analysis request: '}
+            {query}
+            
+            {'The data is the same as in the previous query.' if is_follow_up else 'Analyze the F1 race data in the uploaded CSV file.'}
             
             Requirements:
             {json.dumps(requirements, indent=2)}
             
-            The data is available in the uploaded CSV file as 'df'.
             Generate Python code that:
             1. Processes and cleans the data appropriately
             2. Creates clear and informative visualizations
@@ -164,8 +191,15 @@ class GPT4Assistant(BaseGenerationModel):
             
         except Exception as e:
             raise RuntimeError(f"Code generation failed: {str(e)}")
-        finally:
-            await self.cleanup()
+            
+    async def cleanup_files(self):
+        """Clean up old files."""
+        for file_id in self.file_ids:
+            try:
+                await self.client.files.delete(file_id)
+            except Exception:
+                pass
+        self.file_ids = []
             
     async def cleanup(self):
         """Clean up resources when done."""
@@ -173,13 +207,11 @@ class GPT4Assistant(BaseGenerationModel):
             if self.thread and hasattr(self.thread, 'id'):
                 await self.client.beta.threads.delete(self.thread.id)
                 self.thread = None
-            
-            for file_id in self.file_ids:
-                try:
-                    await self.client.files.delete(file_id)
-                except Exception:
-                    pass
-            self.file_ids = []
-            
+            await self.cleanup_files()
         except Exception as e:
-            raise RuntimeError(f"Cleanup failed: {str(e)}") 
+            raise RuntimeError(f"Cleanup failed: {str(e)}")
+            
+    def __del__(self):
+        """Ensure cleanup when the instance is destroyed."""
+        if self.thread or self.file_ids:
+            asyncio.create_task(self.cleanup()) 

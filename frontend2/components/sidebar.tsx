@@ -6,12 +6,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { ENDPOINTS, type UserStats, type ApiResponse } from '@/lib/config'
+import { ENDPOINTS, type UserStats, type ApiResponse, type AnalysisResult } from '@/lib/config'
 
 interface NavItem {
   icon: React.ComponentType
   label: string
   href: string
+}
+
+interface SidebarProps {
+  currentResults?: AnalysisResult | null;
+  onFollowUpQuery?: (query: string) => void;
 }
 
 const navItems: NavItem[] = [
@@ -21,12 +26,14 @@ const navItems: NavItem[] = [
   { icon: Library, label: 'History', href: '/history' },
 ]
 
-export function Sidebar() {
+export function Sidebar({ currentResults, onFollowUpQuery }: SidebarProps) {
   const [username, setUsername] = useState('')
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [userStats, setUserStats] = useState<UserStats | null>(null)
+  const [followUpQuery, setFollowUpQuery] = useState('')
+  const [isSubmittingFollowUp, setIsSubmittingFollowUp] = useState(false)
 
   const handleConnect = async () => {
     if (!username) return
@@ -131,6 +138,34 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto space-y-4">
+        {currentResults && (
+          <div className="space-y-2 mb-4 p-3 border rounded-lg">
+            <div className="text-sm font-medium">Follow-up Question</div>
+            <div className="space-y-2">
+              <Input
+                placeholder="Ask a follow-up question..."
+                value={followUpQuery}
+                onChange={(e) => setFollowUpQuery(e.target.value)}
+                disabled={isSubmittingFollowUp}
+              />
+              <Button 
+                className="w-full"
+                onClick={() => {
+                  if (followUpQuery.trim() && onFollowUpQuery) {
+                    setIsSubmittingFollowUp(true);
+                    onFollowUpQuery(followUpQuery);
+                    setFollowUpQuery('');
+                    setIsSubmittingFollowUp(false);
+                  }
+                }}
+                disabled={!followUpQuery.trim() || isSubmittingFollowUp}
+              >
+                {isSubmittingFollowUp ? 'Processing...' : 'Ask Follow-up'}
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           <div className="text-sm font-medium">Connection Status</div>
           <Badge variant={isConnected ? "success" : "secondary"} className="w-full justify-center">
