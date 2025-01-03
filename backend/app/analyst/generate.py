@@ -9,37 +9,26 @@ from typing import Tuple, Dict, Any, Optional, Union, List
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from anthropic import Anthropic
-from .prompts import f1_prompt, stable_prompt_with_error, custom_prompt
 import io
 import base64
 import numpy as np
 from .variable_mapper import VariableMapper, preprocess_code
+from .models import get_code_generator
 
-# Load environment variables
-ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
-
-def generate_code(df: pd.DataFrame, query: str) -> str:
-    """Generate analysis code using Claude"""
-    client = Anthropic(api_key=ANTHROPIC_API_KEY)
+def generate_code(df: pd.DataFrame, query: str, model: str = "gpt4") -> str:
+    """Generate analysis code using specified model"""
+    generator = get_code_generator(model)
     
     # Generate prompt using F1-specific visualization prompt
+    from .prompts import f1_prompt
     prompt = f1_prompt(df, query)
     
-    # Get response from Claude
-    response = client.messages.create(
-        model="claude-3-sonnet-20240229",
-        max_tokens=1500,
-        temperature=0,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    
-    # Extract the text content from the response
-    content = str(response.content)
+    # Get response from model
+    content = generator.generate(prompt)
     return content
 
 def extract_code_block(response: str) -> Optional[str]:
-    """Extract Python code block from Claude's response"""
+    """Extract Python code block from model's response"""
     pattern = r"```python\s*(.*?)\s*```"
     matches = re.findall(pattern, response, re.DOTALL)
     if not matches:
@@ -162,21 +151,14 @@ captured_figure = base64.b64encode(buffer.getvalue()).decode()
             "error": error_msg
         }, code
 
-def regenerate_code_with_error(df: pd.DataFrame, question: str, error_message: str, previous_code: str) -> str:
-    """Regenerate code after an error"""
-    client = Anthropic(api_key=ANTHROPIC_API_KEY)
+def regenerate_code_with_error(df: pd.DataFrame, question: str, error_message: str, previous_code: str, model: str = "claude") -> str:
+    """Regenerate code after an error using specified model"""
+    generator = get_code_generator(model)
     
     # Use error-specific prompt
+    from .prompts import stable_prompt_with_error
     prompt = stable_prompt_with_error(df, question, error_message, previous_code)
     
-    # Get new response from Claude
-    response = client.messages.create(
-        model="claude-3-sonnet-20240229",
-        max_tokens=1500,
-        temperature=0,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    
-    # Extract the text content from the response
-    content = str(response.content)
+    # Get response from model
+    content = generator.generate(prompt)
     return content 
