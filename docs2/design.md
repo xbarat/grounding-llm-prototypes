@@ -6,283 +6,182 @@
 The F1 Analysis System is built on a modern, scalable architecture that combines real-time data processing with advanced AI analysis capabilities. The system uses a microservices-based approach with the following key components:
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Frontend      │     │    Backend      │     │  Model Layer    │
-│  (Next.js)      │────▶│   (FastAPI)     │────▶│  (OpenAI/Custom)│
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                               │                         │
-                               ▼                         ▼
-                        ┌─────────────────┐     ┌─────────────────┐
-                        │   Database      │     │   File Storage  │
-                        │   (SQLite)      │     │   (Local/S3)    │
-                        └─────────────────┘     └─────────────────┘
+┌─────────────────┐     ┌─────────────────┐     ┌───────────────────────┐
+│   Frontend      │     │    Backend      │     │    Model Layer        │
+│  (Next.js)      │────▶│   (FastAPI)     │────▶│  (Multi-Model System) │
+└─────────────────┘     └─────────────────┘     └───────────────────────┘
+        │                       │                          │
+        │                       ▼                          ▼
+        │                ┌─────────────────┐     ┌─────────────────┐
+        │                │   Database      │     │   File Storage  │
+        │                │   (SQLite)      │     │   (Local/S3)    │
+        └───────────────▶└─────────────────┘     └─────────────────┘
 ```
 
 ### Components
 
 1. **Frontend Layer**
-   - Next.js application
-   - React components for visualization
-   - Real-time data updates
-   - Interactive query interface
+   - Next.js application with React components
+   - Interactive query interface with follow-up capability
+   - Real-time data visualization
+   - Sidebar-based follow-up query system
+   - State management for query context
 
 2. **Backend Layer**
-   - FastAPI server
-   - Asynchronous request handling
-   - Data processing pipeline
-   - Model orchestration
+   - FastAPI application
+   - Multi-model orchestration system
+   - Follow-up query processing
+   - Data pipeline integration
+   - Query history management
 
 3. **Model Layer**
-   - GPT-4 Assistant integration
-   - Custom model implementations
-   - Model registry and selection
-   - Result processing
+   - Multi-model orchestration
+   - GPT-4 for complex analysis
+   - Claude for stable code generation
+   - Context-aware follow-up handling
+   - Model selection based on query type
 
-4. **Storage Layer**
-   - SQLite database for persistence
-   - File storage for temporary data
-   - Cache management
-   - Resource cleanup
+4. **Data Layer**
+   - F1 data pipeline
+   - Real-time data processing
+   - Data caching and persistence
+   - Query result storage
 
-## System Workflow
+## Key Features
 
-### 1. Query Processing Flow
+### 1. Multi-Model Orchestration
+```python
+class ModelOrchestrator:
+    def __init__(self):
+        self.models = {
+            'gpt4': GPT4Assistant(),
+            'claude': ClaudeModel(),
+            'stable': StableModel()
+        }
+        
+    async def process_query(self, query: str, context: Optional[Dict] = None):
+        model = self.select_model(query, context)
+        return await model.generate(query, context)
+```
 
+### 2. Follow-up Query System
+```python
+class FollowUpHandler:
+    def __init__(self):
+        self.context_store = {}
+        
+    async def process_follow_up(self, query: str, initial_context: Dict):
+        # Enhance query with context
+        enhanced_query = self.merge_context(query, initial_context)
+        return await self.analyze(enhanced_query)
+```
+
+### 3. Query Processing Flow
 ```mermaid
-sequenceDiagram
-    participant User
-    participant Frontend
-    participant Backend
-    participant ModelRegistry
-    participant Assistant
-    participant Storage
-
-    User->>Frontend: Submit Query
-    Frontend->>Backend: POST /api/analyze
-    Backend->>ModelRegistry: Select Model
-    ModelRegistry->>Assistant: Initialize
-    Assistant->>Storage: Upload Data
-    Assistant->>Assistant: Process Query
-    Assistant->>Backend: Return Results
-    Backend->>Frontend: Send Response
-    Frontend->>User: Display Results
+graph TD
+    A[User Query] --> B{Query Type}
+    B -->|Initial| C[Process Query]
+    B -->|Follow-up| D[Context Enhancement]
+    C --> E[Data Fetching]
+    D --> F[Reuse Data]
+    E --> G[Model Selection]
+    F --> G
+    G --> H[Analysis]
+    H --> I[Visualization]
 ```
 
-### 2. Data Flow
+## Implementation Details
 
-```
-1. Query Input → Validation → Preprocessing
-2. Data Fetching → Transformation → Storage
-3. Model Selection → Analysis → Result Generation
-4. Response Formatting → Visualization → Presentation
-```
+### 1. Frontend Components
+- Main query interface
+- Follow-up query sidebar
+- Real-time visualization
+- Query history display
+- Context management
 
-## Key Components
+### 2. Backend Services
+- Query processing
+- Data pipeline
+- Model orchestration
+- Follow-up handling
+- Result caching
 
-### 1. Model Registry
-```python
-class ModelRegistry:
-    def __init__(self):
-        self.models: Dict[str, BaseModel] = {}
-        self.default_model: str = "gpt4"
+### 3. Model Integration
+- GPT-4 for complex analysis
+- Claude for code generation
+- Context-aware processing
+- Model selection logic
+- Error handling
 
-    async def get_model(self, query_type: str) -> BaseModel:
-        return self.models.get(query_type, self.models[self.default_model])
-```
-
-### 2. GPT-4 Assistant
-```python
-class GPT4Assistant(BaseAssistantModel):
-    def __init__(self, api_key: str, model: str = "gpt-4"):
-        self.client = AsyncOpenAI(api_key=api_key)
-        self.model = model
-        self.assistant: Optional[Any] = None
-        self.thread: Optional[Any] = None
-```
-
-### 3. Event Handler
-```python
-class F1AnalysisEventHandler(AsyncAssistantEventHandler):
-    def __init__(self):
-        super().__init__()
-        self.analysis_text = ""
-        self.image_files: List[str] = []
-```
+### 4. Data Management
+- Query context storage
+- Result caching
+- Data normalization
+- History tracking
+- Performance optimization
 
 ## API Endpoints
 
-### 1. Analysis Endpoints
-
-#### Query Analysis
-```
-POST /api/analyze
+### 1. Query Processing
+```http
+POST /api/v1/process_query
 Content-Type: application/json
-
 {
-    "query": string,
-    "data": {
-        "type": "race" | "qualifying" | "season",
-        "parameters": object
+    "query": "string",
+    "context": "object?"
+}
+```
+
+### 2. Follow-up Queries
+```http
+POST /api/v1/analyze_data
+Content-Type: application/json
+{
+    "query": "string",
+    "data": "object",
+    "requirements": {
+        "endpoint": "/api/f1/follow-up",
+        "params": {}
     }
 }
-```
-
-#### Batch Analysis
-```
-POST /api/analyze/batch
-Content-Type: application/json
-
-{
-    "queries": [
-        {
-            "query": string,
-            "data": object
-        }
-    ]
-}
-```
-
-### 2. Data Management
-
-#### Data Upload
-```
-POST /api/data/upload
-Content-Type: multipart/form-data
-
-{
-    "file": binary,
-    "type": string,
-    "metadata": object
-}
-```
-
-#### Data Fetch
-```
-GET /api/data/{type}/{id}
-Authorization: Bearer {token}
-```
-
-## Environment Variables
-
-```bash
-# OpenAI Configuration
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4
-
-# API Configuration
-API_HOST=0.0.0.0
-API_PORT=8000
-API_DEBUG=false
-
-# Database Configuration
-DATABASE_URL=sqlite:///./f1_analysis.db
-
-# Storage Configuration
-STORAGE_TYPE=local
-STORAGE_PATH=./data
 ```
 
 ## Security Considerations
 
-1. **API Security**
-   - JWT authentication
+1. **Query Validation**
+   - Input sanitization
+   - Query length limits
    - Rate limiting
-   - Input validation
-   - Error handling
+   - Context validation
 
-2. **Data Security**
-   - Encryption at rest
-   - Secure file handling
-   - Temporary file cleanup
-   - Access control
-
-3. **Model Security**
+2. **Model Access**
    - API key management
-   - Request validation
-   - Response sanitization
-   - Resource limits
+   - Request quotas
+   - Error handling
+   - Fallback mechanisms
 
-## Error Handling
-
-1. **Error Types**
-```python
-class AnalysisError(Exception):
-    pass
-
-class ModelError(Exception):
-    pass
-
-class DataError(Exception):
-    pass
-```
-
-2. **Error Responses**
-```json
-{
-    "error": {
-        "code": string,
-        "message": string,
-        "details": object
-    }
-}
-```
-
-## Performance Considerations
-
-1. **Caching Strategy**
-   - Query results caching
-   - Data caching
-   - Model response caching
-   - File caching
-
-2. **Resource Management**
-   - Connection pooling
-   - Thread management
-   - Memory management
-   - File cleanup
-
-3. **Optimization**
-   - Request batching
-   - Async processing
-   - Load balancing
-   - Resource limits
-
-## Monitoring and Metrics
-
-1. **System Metrics**
-   - Request latency
-   - Error rates
-   - Resource usage
-   - Cache hit rates
-
-2. **Model Metrics**
-   - Processing time
-   - Success rates
-   - Token usage
-   - Cost tracking
-
-3. **User Metrics**
-   - Query patterns
-   - Usage statistics
-   - Error patterns
-   - User satisfaction
+3. **Data Protection**
+   - Query history encryption
+   - Context data security
+   - Result caching policies
+   - Access control
 
 ## Future Enhancements
 
-1. **Scalability**
-   - Distributed processing
-   - Load balancing
-   - Horizontal scaling
-   - Cache distribution
+1. **Model Improvements**
+   - Additional model integration
+   - Performance optimization
+   - Context handling enhancement
+   - Error recovery
 
-2. **Features**
-   - Real-time analysis
-   - Advanced visualizations
-   - Custom models
-   - Batch processing
+2. **UI/UX Enhancements**
+   - Advanced visualization
+   - Interactive follow-ups
+   - Context visualization
+   - Query suggestions
 
-3. **Integration**
-   - Additional data sources
-   - External services
-   - Custom plugins
-   - API extensions 
+3. **Backend Optimization**
+   - Caching improvements
+   - Query optimization
+   - Model selection refinement
+   - Context management 
