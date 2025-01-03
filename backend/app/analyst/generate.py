@@ -74,7 +74,9 @@ def execute_code_safely(code: str, data: pd.DataFrame) -> Tuple[bool, Dict[str, 
             'data': data.copy(),  # Use a copy to prevent modifications to original
             'df': data.copy(),    # Add df reference since some code might use it
             'print': print,
-            'sns': sns
+            'sns': sns,
+            'io': io,
+            'base64': base64
         }
         
         # Validate data
@@ -106,21 +108,33 @@ def execute_code_safely(code: str, data: pd.DataFrame) -> Tuple[bool, Dict[str, 
         print("\nData Types Before Execution:")
         print(globals_dict['data'].dtypes)
             
-        # Execute the preprocessed code
+        # Modify the code to capture the figure before plt.show()
+        capture_code = """
+# Get the current figure
+fig = plt.gcf()
+
+# Save to buffer
+buffer = io.BytesIO()
+fig.savefig(buffer, format='png', bbox_inches='tight')
+buffer.seek(0)
+captured_figure = base64.b64encode(buffer.getvalue()).decode()
+"""
+        
+        # Insert capture code before any plt.show()
+        if "plt.show()" in modified_code:
+            modified_code = modified_code.replace("plt.show()", capture_code + "\nplt.show()")
+        else:
+            modified_code = modified_code + "\n" + capture_code
+            
+        # Execute the modified code
         exec(modified_code, globals_dict)
         
-        # Get the figure from globals
-        fig = plt.gcf()
-        
-        # Convert plot to base64 string
-        buffer = io.BytesIO()
-        fig.savefig(buffer, format='png', bbox_inches='tight')
-        buffer.seek(0)
-        image_base64 = base64.b64encode(buffer.getvalue()).decode()
-        plt.close()
-        
-        # Get printed output
+        # Get the captured figure and output
+        image_base64 = globals_dict.get('captured_figure', '')
         output = globals_dict.get('output', '')
+        
+        # Clean up
+        plt.close('all')
         
         # Ensure we have a visualization
         if not image_base64:

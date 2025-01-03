@@ -22,12 +22,14 @@ Important guidelines:
 4. Handle missing values appropriately
 5. Create clear and informative visualizations
 6. Include a brief text summary of the findings
+7. DO NOT use plt.show() - the figure will be handled programmatically
+8. DO NOT use plt.savefig() - the figure will be handled externally
 
 User Query: {query}
 
 Generate Python code that:
 1. Processes the data appropriately
-2. Creates a visualization
+2. Creates a visualization (but does not display or save it)
 3. Provides a text summary
 
 Return only the Python code block, no explanations. The code should be complete and ready to execute.
