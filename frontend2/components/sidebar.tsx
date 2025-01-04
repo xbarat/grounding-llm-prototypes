@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { Menu, Home, Activity, BarChart, History, X, Compass, Layers, Library, Plus, Download, Trophy } from 'lucide-react'
+import { Menu, Home, Activity, BarChart, History, X, Compass, Layers, Library, Plus, Download, Trophy, Hexagon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { ENDPOINTS, type UserStats, type ApiResponse, type AnalysisResult } from '@/lib/config'
@@ -120,11 +120,11 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
       <div className="p-4">
         <Button
           variant="outline"
-          className="w-full justify-start gap-2 text-white/60 hover:text-white"
+          className="w-full justify-start gap-2 text-white/60 hover:text-white text-lg border-transparent bg-transparent" // Added transparent background
           onClick={() => window.location.href = '/'}
         >
-          <Home className="h-4 w-4" />
-          New Analysis
+          <Hexagon className="h-4 w-4 inline" /> {/* Ensured icon is inline */}
+          Orbit LM
         </Button>
       </div>
 
@@ -170,7 +170,7 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Enter username"
-              className="bg-[#2C2C2C] border-0"
+              className="bg-[#1C1C1C] border-0" // Changed to a more darker color
             />
             <Button
               variant="outline"
@@ -188,7 +188,7 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
 
   // Desktop sidebar
   const DesktopSidebar = () => (
-    <div className="hidden md:block w-[260px] bg-[#1C1C1C] border-r border-white/10">
+    <div className="hidden md:block w-[260px] bg-[#0D0D0D] border-r border-white/10">
       <SidebarContent />
     </div>
   )
@@ -202,7 +202,7 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
             <Menu className="h-6 w-6" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-[80%] max-w-[300px] p-0 bg-[#1C1C1C] border-r border-white/10">
+        <SheetContent side="left" className="w-[80%] max-w-[300px] p-0 bg-[#0D0D0D] border-r border-white/10">
           <SidebarContent />
         </SheetContent>
       </Sheet>
@@ -216,4 +216,3 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
     </>
   )
 }
-
