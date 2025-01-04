@@ -134,6 +134,12 @@ export default function Page() {
   const [followUpQuery, setFollowUpQuery] = useState('')
   const [isSubmittingFollowUp, setIsSubmittingFollowUp] = useState(false)
 
+  const handleHistoryItemClick = (thread: any[]) => {
+    if (thread && thread.length > 0) {
+      setQueryThread(thread as QueryThread[]);
+    }
+  };
+
   const handleAnalysis = async (queryText: string, isFollowUp: boolean = false) => {
     if (!queryText.trim()) return
 
@@ -251,10 +257,10 @@ export default function Page() {
   return (
     <div className="flex flex-col min-h-screen bg-[#1C1C1C] text-white">
       <div className="flex h-screen">
-        <Sidebar />
-        <main className="flex-1 relative">
-          <div className="flex flex-col px-4 py-12 h-full overflow-y-auto">
-            <div className="max-w-[800px] mx-auto w-full mb-24">
+        <Sidebar onHistoryItemClick={handleHistoryItemClick} />
+        <main className="flex-1 relative w-full">
+          <div className="flex flex-col px-4 md:px-8 py-6 md:py-12 h-full overflow-y-auto">
+            <div className="w-full max-w-[800px] mx-auto mb-24">
               {queryThread.length === 0 && (
                 <>
                   <h1 className="text-4xl font-semibold mb-8 text-white/90 text-center">
@@ -357,7 +363,7 @@ export default function Page() {
             </div>
 
             {queryThread.length > 0 && (
-              <div className="fixed bottom-8 w-[800px] left-1/2 -translate-x-1/2" style={{ marginLeft: "130px" }}>
+              <div className="fixed bottom-8 w-full md:w-[800px] left-1/2 -translate-x-1/2 px-4 md:px-0 md:ml-[130px]">
                 <div className="bg-[#2C2C2C]/80 backdrop-blur-sm rounded-2xl p-1.5 shadow-lg">
                   <form onSubmit={handleFollowUpSubmit}>
                     <div className="relative flex items-center">

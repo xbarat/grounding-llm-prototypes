@@ -1,21 +1,24 @@
 'use client'
 
-import { useState } from 'react'
-import { Home, Compass, Layers, Library, Plus, Download, Trophy, Activity } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Menu, Home, Activity, BarChart, History, X, Compass, Layers, Library, Plus, Download, Trophy } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { ENDPOINTS, type UserStats, type ApiResponse, type AnalysisResult } from '@/lib/config'
 
-interface NavItem {
-  icon: React.ComponentType
-  label: string
-  href: string
+interface HistoryItem {
+  id: string;
+  title: string;
+  thread: any[];
+  timestamp: string;
 }
 
 interface SidebarProps {
-  className?: string
+  className?: string;
+  onHistoryItemClick?: (thread: any[]) => void;
 }
 
 const navItems: NavItem[] = [
@@ -25,12 +28,14 @@ const navItems: NavItem[] = [
   { icon: Library, label: 'History', href: '/history' },
 ]
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
   const [username, setUsername] = useState('')
   const [isConnected, setIsConnected] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [userStats, setUserStats] = useState<UserStats | null>(null)
+  const [history, setHistory] = useState<HistoryItem[]>([])
+  const [isOpen, setIsOpen] = useState(false)
 
   const handleConnect = async () => {
     if (!username) return
@@ -110,92 +115,105 @@ export function Sidebar({ className }: SidebarProps) {
     }
   }
 
-  return (
-    <div className="w-64 border-r bg-background p-4 flex flex-col h-full">
-      <div className="flex items-center gap-2 mb-8">
-        <Button variant="outline" className="w-full justify-start gap-2">
-          <Plus className="h-4 w-4" /> New Analysis
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full">
+      <div className="p-4">
+        <Button
+          variant="outline"
+          className="w-full justify-start gap-2 text-white/60 hover:text-white"
+          onClick={() => window.location.href = '/'}
+        >
+          <Home className="h-4 w-4" />
+          New Analysis
         </Button>
       </div>
 
-      <nav className="space-y-2 mb-8">
-        {navItems.map((item) => (
-          <Button
-            key={item.href}
-            variant="ghost"
-            className="w-full justify-start gap-2"
-            asChild
-          >
-            <a href={item.href}>
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </a>
-          </Button>
+      <div className="flex-1 overflow-y-auto p-4">
+        {isConnected && Object.entries(groupHistoryByDate()).map(([date, items]) => (
+          <div key={date} className="mb-6">
+            <h3 className="text-sm font-medium text-white/60 mb-2">{date}</h3>
+            <div className="space-y-2">
+              {items.map((item) => (
+                <Button
+                  key={item.id}
+                  variant="ghost"
+                  className="w-full justify-start text-left text-sm text-white/60 hover:text-white truncate"
+                  onClick={() => {
+                    onHistoryItemClick?.(item.thread)
+                    setIsOpen(false)
+                  }}
+                >
+                  {item.title}
+                </Button>
+              ))}
+            </div>
+          </div>
         ))}
-      </nav>
+      </div>
 
-      <div className="mt-auto space-y-4">
-        <div className="space-y-2">
-          <div className="text-sm font-medium">Connection Status</div>
-          <Badge variant={isConnected ? "success" : "secondary"} className="w-full justify-center">
-            {isConnected ? 'Connected' : 'Disconnected'}
-          </Badge>
-        </div>
-
-        <div className="space-y-2">
-          <Input
-            placeholder="Enter username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            disabled={isConnected}
-          />
-          {error && (
-            <div className="text-sm text-red-500">
-              {error}
-            </div>
-          )}
-          <Button 
-            className="w-full"
-            onClick={handleConnect}
-            disabled={!username || isConnecting}
-          >
-            {isConnecting ? 'Connecting...' : isConnected ? 'Connected' : 'Connect'}
-          </Button>
-        </div>
-
-        {isConnected && userStats && (
-          <div className="p-3 border rounded-lg space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                {userStats.name.slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <div className="text-sm font-medium">{userStats.name}</div>
-                <div className="text-xs text-muted-foreground">{userStats.tstats.level}</div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <div className="text-muted-foreground">WPM</div>
-                <div className="font-medium">{userStats.tstats.wpm.toFixed(1)}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Best</div>
-                <div className="font-medium">{userStats.tstats.bestGameWpm.toFixed(1)}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Games</div>
-                <div className="font-medium">{userStats.tstats.cg}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Won</div>
-                <div className="font-medium">{userStats.tstats.gamesWon}</div>
-              </div>
-            </div>
+      <div className="p-4 border-t border-white/10">
+        <div className="text-sm font-medium mb-2">Connection Status</div>
+        {isConnected ? (
+          <div className="space-y-2">
+            <div className="text-sm text-white/60">Connected as {username}</div>
+            <Button
+              variant="ghost"
+              className="w-full justify-center text-white/60 hover:text-white"
+              onClick={handleDisconnect}
+            >
+              Disconnect
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username"
+              className="bg-[#2C2C2C] border-0"
+            />
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleConnect}
+              disabled={!username.trim()}
+            >
+              Connect
+            </Button>
           </div>
         )}
       </div>
     </div>
+  )
+
+  // Desktop sidebar
+  const DesktopSidebar = () => (
+    <div className="hidden md:block w-[260px] bg-[#1C1C1C] border-r border-white/10">
+      <SidebarContent />
+    </div>
+  )
+
+  // Mobile sidebar
+  const MobileSidebar = () => (
+    <div className="md:hidden">
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetTrigger asChild>
+          <Button variant="ghost" size="icon" className="md:hidden fixed top-4 left-4 z-50">
+            <Menu className="h-6 w-6" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-[80%] max-w-[300px] p-0 bg-[#1C1C1C] border-r border-white/10">
+          <SidebarContent />
+        </SheetContent>
+      </Sheet>
+    </div>
+  )
+
+  return (
+    <>
+      <DesktopSidebar />
+      <MobileSidebar />
+    </>
   )
 }
 
