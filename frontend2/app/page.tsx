@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ArrowRight, Share2, RefreshCw, ThumbsUp, ThumbsDown, Copy, MoreHorizontal, 
-  Image, FileText, Code, PenTool, BarChart2, MoreHorizontal as More } from 'lucide-react'
+  Image, FileText, Code, PenTool, BarChart2, MoreHorizontal as More, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -252,133 +252,144 @@ export default function Page() {
     <div className="flex flex-col min-h-screen bg-[#1C1C1C] text-white">
       <div className="flex h-screen">
         <Sidebar />
-        <div className="flex-1 flex flex-col px-4 py-12 relative overflow-y-auto">
-          <div className="max-w-[800px] mx-auto w-full mb-24">
-            {queryThread.length === 0 && (
-              <>
-                <h1 className="text-4xl font-semibold mb-8 text-white/90 text-center">
-                  Ask anything, See the answer
-                </h1>
+        <main className="flex-1 relative">
+          <div className="flex flex-col px-4 py-12 h-full overflow-y-auto">
+            <div className="max-w-[800px] mx-auto w-full mb-24">
+              {queryThread.length === 0 && (
+                <>
+                  <h1 className="text-4xl font-semibold mb-8 text-white/90 text-center">
+                    Ask anything, See the answer
+                  </h1>
 
-                <form onSubmit={handleSubmit} className="w-full max-w-[600px] mx-auto mb-8">
-                  <div className="relative">
-                    <Input
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Ask about F1 performance, trends, and statistics..."
-                      className="w-full bg-[#2C2C2C] border-0 h-12 pl-4 pr-12 rounded-xl placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-white/20"
-                    />
-                    <Button 
-                      size="icon" 
-                      type="submit" 
-                      disabled={isLoading}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center"
-                    >
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </form>
+                  <form onSubmit={handleSubmit} className="w-full max-w-[600px] mx-auto mb-8">
+                    <div className="relative">
+                      <Input
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Ask about F1 performance, trends, and statistics..."
+                        className="w-full bg-[#2C2C2C] border-0 h-12 pl-4 pr-12 rounded-xl placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-white/20"
+                      />
+                      <Button 
+                        size="icon" 
+                        type="submit" 
+                        disabled={isLoading}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center"
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </form>
 
-                <div className="w-full max-w-[600px] mx-auto mt-8">
-                  <h3 className="text-sm text-white/60 mb-2 px-2">Try these examples:</h3>
-                  <div className="bg-transparent border border-white/10 rounded-xl p-2">
-                    <div className="grid grid-cols-1 gap-2">
-                      {EXAMPLE_QUERIES.map((example, index) => (
-                        <Button 
-                          key={index}
-                          variant="ghost" 
-                          className="w-full justify-start gap-2 text-white/60 hover:text-white text-sm"
-                          onClick={() => setQuery(example)}
-                        >
-                          {example}
-                        </Button>
-                      ))}
+                  <div className="w-full max-w-[600px] mx-auto mt-8">
+                    <h3 className="text-sm text-white/60 mb-2 px-2">Try these examples:</h3>
+                    <div className="bg-transparent border border-white/10 rounded-xl p-2">
+                      <div className="grid grid-cols-1 gap-2">
+                        {EXAMPLE_QUERIES.map((example, index) => (
+                          <Button 
+                            key={index}
+                            variant="ghost" 
+                            className="w-full justify-start gap-2 text-white/60 hover:text-white text-sm"
+                            onClick={() => setQuery(example)}
+                          >
+                            {example}
+                          </Button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </>
-            )}
+                </>
+              )}
 
-            {queryThread.map((item, index) => (
-              <div key={item.id} className="mb-8">
-                <div className="mb-2 flex items-center gap-2">
-                  <div className="text-sm text-white/60">
-                    {item.isFollowUp ? 'Follow-up Query:' : 'Initial Query:'}
+              {queryThread.map((item, index) => (
+                <div key={item.id} className="mb-8">
+                  <div className="mb-2 flex items-center gap-2">
+                    <div className="text-sm text-white/60">
+                      {item.isFollowUp ? 'Follow-up Query:' : 'Initial Query:'}
+                    </div>
+                    <div className="text-sm font-medium">{item.query}</div>
                   </div>
-                  <div className="text-sm font-medium">{item.query}</div>
+                  <QueryResults results={item.result} />
+                  <ActionToolbar
+                    onShare={() => {
+                      navigator.clipboard.writeText(item.query)
+                    }}
+                    onRewrite={() => {
+                      setFollowUpQuery(item.query)
+                    }}
+                    onLike={() => {
+                      console.log('Liked:', item.id)
+                    }}
+                    onDislike={() => {
+                      console.log('Disliked:', item.id)
+                    }}
+                    onCopy={() => {
+                      const resultText = item.result.summary || 'No analysis available'
+                      navigator.clipboard.writeText(`${item.query}\n\n${resultText}`)
+                    }}
+                    onMore={() => {
+                      console.log('More options:', item.id)
+                    }}
+                  />
+                  <SuggestionBox 
+                    onSuggestionClick={(suggestion) => {
+                      // For now, set as follow-up query with the suggestion
+                      setFollowUpQuery(`${suggestion}: ${item.query}`)
+                    }}
+                  />
                 </div>
-                <QueryResults results={item.result} />
-                <ActionToolbar
-                  onShare={() => {
-                    navigator.clipboard.writeText(item.query)
-                  }}
-                  onRewrite={() => {
-                    setFollowUpQuery(item.query)
-                  }}
-                  onLike={() => {
-                    console.log('Liked:', item.id)
-                  }}
-                  onDislike={() => {
-                    console.log('Disliked:', item.id)
-                  }}
-                  onCopy={() => {
-                    const resultText = item.result.summary || 'No analysis available'
-                    navigator.clipboard.writeText(`${item.query}\n\n${resultText}`)
-                  }}
-                  onMore={() => {
-                    console.log('More options:', item.id)
-                  }}
-                />
-                <SuggestionBox 
-                  onSuggestionClick={(suggestion) => {
-                    // For now, set as follow-up query with the suggestion
-                    setFollowUpQuery(`${suggestion}: ${item.query}`)
-                  }}
-                />
+              ))}
+
+              {isLoading && (
+                <Card className="w-full bg-[#2C2C2C] border-0 mb-8">
+                  <div className="animate-pulse space-y-4 p-4">
+                    <div className="h-4 bg-white/10 rounded w-3/4" />
+                    <div className="h-4 bg-white/10 rounded w-1/2" />
+                    <div className="h-32 bg-white/10 rounded" />
+                  </div>
+                </Card>
+              )}
+
+              {error && (
+                <Card className="w-full bg-[#2C2C2C] border-0 p-4 mb-8">
+                  <p className="text-red-400">{error}</p>
+                </Card>
+              )}
+            </div>
+
+            {queryThread.length > 0 && (
+              <div className="fixed bottom-8 w-[800px] left-1/2 -translate-x-1/2" style={{ marginLeft: "130px" }}>
+                <div className="bg-[#2C2C2C]/80 backdrop-blur-sm rounded-2xl p-1.5 shadow-lg">
+                  <form onSubmit={handleFollowUpSubmit}>
+                    <div className="relative flex items-center">
+                      <div className="absolute left-4">
+                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white/5">
+                          <Plus className="h-4 w-4 text-white/60" />
+                        </div>
+                      </div>
+                      <Input
+                        value={followUpQuery}
+                        onChange={(e) => setFollowUpQuery(e.target.value)}
+                        placeholder="Ask follow-up..."
+                        className="w-full bg-transparent border-0 h-12 pl-14 pr-12 placeholder:text-white/40 focus-visible:ring-0 focus:outline-none text-base"
+                        disabled={isSubmittingFollowUp}
+                      />
+                      <div className="absolute right-2 flex items-center gap-2">
+                        <Button 
+                          size="icon" 
+                          type="submit"
+                          disabled={isSubmittingFollowUp || !followUpQuery.trim()}
+                          className="bg-white/5 hover:bg-white/10 rounded-lg w-8 h-8 flex items-center justify-center"
+                        >
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
               </div>
-            ))}
-
-            {isLoading && (
-              <Card className="w-full bg-[#2C2C2C] border-0 mb-8">
-                <div className="animate-pulse space-y-4 p-4">
-                  <div className="h-4 bg-white/10 rounded w-3/4" />
-                  <div className="h-4 bg-white/10 rounded w-1/2" />
-                  <div className="h-32 bg-white/10 rounded" />
-                </div>
-              </Card>
-            )}
-
-            {error && (
-              <Card className="w-full bg-[#2C2C2C] border-0 p-4 mb-8">
-                <p className="text-red-400">{error}</p>
-              </Card>
             )}
           </div>
-
-          {queryThread.length > 0 && (
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#1C1C1C] border-t border-white/10">
-              <form onSubmit={handleFollowUpSubmit} className="max-w-[800px] mx-auto">
-                <div className="relative">
-                  <Input
-                    value={followUpQuery}
-                    onChange={(e) => setFollowUpQuery(e.target.value)}
-                    placeholder="Ask a follow-up question..."
-                    className="w-full bg-[#2C2C2C] border-0 h-12 pl-4 pr-12 rounded-xl placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-white/20"
-                    disabled={isSubmittingFollowUp}
-                  />
-                  <Button 
-                    size="icon" 
-                    type="submit"
-                    disabled={isSubmittingFollowUp || !followUpQuery.trim()}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center"
-                  >
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </form>
-            </div>
-          )}
-        </div>
+        </main>
       </div>
     </div>
   )
