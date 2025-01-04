@@ -2,29 +2,40 @@
 import asyncio
 import logging
 from typing import Dict, Any, List, Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
 from app.pipeline.data2 import DataPipeline, DataRequirements, DataResponse
 from app.analyst.generate import generate_code, extract_code_block, execute_code_safely
 import re
+from sqlalchemy.orm import Session
+
+from app.database import engine, Base, get_db
+from app.auth.routes import router as auth_router
+from app.models.user import User, QueryHistory
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Create database tables
+Base.metadata.create_all(bind=engine)
+
 # Initialize FastAPI app
 app = FastAPI(title="F1 Data Analysis API")
 
-# Add CORS middleware
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"],
+    allow_origins=["*"],  # In production, replace with your frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include authentication routes
+app.include_router(auth_router, prefix="/auth", tags=["auth"])
 
 # Request/Response Models
 class QueryRequest(BaseModel):
