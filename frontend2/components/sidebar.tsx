@@ -4,10 +4,8 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { Menu, Home, Activity, BarChart, History, X, Compass, Layers, Library, Plus, Download, Trophy, Hexagon } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { Menu, Hexagon, LogIn, LogOut, Plus, Users, History as HistoryIcon, ArrowRight, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ENDPOINTS, type UserStats, type ApiResponse, type AnalysisResult } from '@/lib/config'
 
 interface HistoryItem {
   id: string;
@@ -21,167 +19,255 @@ interface SidebarProps {
   onHistoryItemClick?: (thread: any[]) => void;
 }
 
-const navItems: NavItem[] = [
-  { icon: Home, label: 'Home', href: '/' },
-  { icon: Activity, label: 'Analysis', href: '/analysis' },
-  { icon: Trophy, label: 'Stats', href: '/stats' },
-  { icon: Library, label: 'History', href: '/history' },
-]
-
 export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
   const [username, setUsername] = useState('')
-  const [isConnected, setIsConnected] = useState(false)
-  const [isConnecting, setIsConnecting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [userStats, setUserStats] = useState<UserStats | null>(null)
+  const [password, setPassword] = useState('')
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [isOpen, setIsOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [showAuthPanel, setShowAuthPanel] = useState(false)
 
-  const handleConnect = async () => {
-    if (!username) return
-    
-    setIsConnecting(true)
-    setError(null)
-    
+  useEffect(() => {
+    // Check for existing token on mount
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      setIsAuthenticated(true)
+      fetchUserHistory()
+    }
+  }, [])
+
+  const handleLogin = async () => {
     try {
-      // First, connect user
-      console.log('Connecting user...')
-      const response = await fetch(ENDPOINTS.CONNECT_USER, {
+      const response = await fetch('/api/auth/token', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          username: username,
+          password: password,
+        }),
       })
 
-      const data: ApiResponse<UserStats> = await response.json()
-      console.log('Connect response:', data)
-
-      if (data.status === 'success' && data.data) {
-        setIsConnected(true)
-        setUserStats(data.data)
-
-        // Then fetch initial data
-        console.log('Fetching initial data...')
-        console.log('User stats data:', data.data)
-        const playerId = data.data.id.startsWith('tr:') ? data.data.id : `tr:${data.data.id}`
-        const requestBody = {
-          player_id: playerId,
-          universe: 'play',
-          n: 100,
-          before_id: data.data.tstats.cg.toString()
-        }
-        console.log('Fetch request body:', requestBody)
-        console.log('Fetch URL:', ENDPOINTS.FETCH_DATA)
-        
-        const fetchResponse = await fetch(ENDPOINTS.FETCH_DATA, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        })
-
-        console.log('Fetch response status:', fetchResponse.status)
-        const fetchResponseText = await fetchResponse.text()
-        console.log('Fetch response text:', fetchResponseText)
-        
-        let fetchData: ApiResponse
-        try {
-          fetchData = JSON.parse(fetchResponseText)
-          console.log('Parsed fetch response:', fetchData)
-        } catch (err) {
-          console.error('Failed to parse fetch response:', err)
-          setError('Failed to parse server response')
-          return
-        }
-        
-        if (fetchData.status !== 'success') {
-          console.error('Fetch data failed:', fetchData)
-          // Don't disconnect user if fetch fails, just show a warning
-          setError('Connected, but failed to fetch race data')
-          return
-        }
+      const data = await response.json()
+      if (response.ok) {
+        localStorage.setItem('auth_token', data.access_token)
+        setIsAuthenticated(true)
+        setError(null)
+        fetchUserHistory()
       } else {
-        throw new Error(data.detail || 'Failed to connect')
+        setError(data.detail || 'Login failed')
       }
     } catch (err) {
-      console.error('Connection error:', err)
-      setError(err instanceof Error ? err.message : 'An error occurred')
-      setIsConnected(false)
-      setUserStats(null)
-    } finally {
-      setIsConnecting(false)
+      setError('Failed to connect to server')
+    }
+  }
+
+  const handleRegister = async () => {
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username,
+          password: password,
+        }),
+      })
+
+      const data = await response.json()
+      if (response.ok) {
+        localStorage.setItem('auth_token', data.access_token)
+        setIsAuthenticated(true)
+        setError(null)
+        fetchUserHistory()
+      } else {
+        setError(data.detail || 'Registration failed')
+      }
+    } catch (err) {
+      setError('Failed to connect to server')
+    }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token')
+    setIsAuthenticated(false)
+    setUsername('')
+    setPassword('')
+    setHistory([])
+  }
+
+  const fetchUserHistory = async () => {
+    const token = localStorage.getItem('auth_token')
+    if (!token) return
+
+    try {
+      const response = await fetch('/api/v1/query_history', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setHistory(data.queries || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch history:', err)
     }
   }
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full">
-      <div className="p-4">
+    <div className="flex flex-col h-full bg-[#0D0D0D]">
+      {/* Top Navigation */}
+      <div className="p-4 space-y-2">
         <Button
-          variant="outline"
-          className="w-full justify-start gap-2 text-white/60 hover:text-white text-lg border-transparent bg-transparent" // Added transparent background
+          variant="ghost"
+          className="w-full justify-start gap-3 text-white/60 hover:text-white text-lg mb-6"
           onClick={() => window.location.href = '/'}
         >
-          <Hexagon className="h-4 w-4 inline" /> {/* Ensured icon is inline */}
+          <Hexagon className="h-5 w-5" />
           Orbit LM
+        </Button>
+
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-3 text-[15px] font-medium text-white/60 hover:text-white"
+          onClick={() => {
+            window.location.href = '/'
+            // Clear any existing thread state here
+          }}
+        >
+          <Plus className="h-5 w-5" />
+          New Analysis
+        </Button>
+
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-3 text-[15px] font-medium text-white/60 hover:text-white"
+        >
+          <Users className="h-5 w-5" />
+          Discover
+        </Button>
+
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-3 text-[15px] font-medium text-white/60 hover:text-white"
+        >
+          <HistoryIcon className="h-5 w-5" />
+          History
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
-        {isConnected && Object.entries(groupHistoryByDate()).map(([date, items]) => (
-          <div key={date} className="mb-6">
-            <h3 className="text-sm font-medium text-white/60 mb-2">{date}</h3>
-            <div className="space-y-2">
-              {items.map((item) => (
-                <Button
-                  key={item.id}
-                  variant="ghost"
-                  className="w-full justify-start text-left text-sm text-white/60 hover:text-white truncate"
-                  onClick={() => {
-                    onHistoryItemClick?.(item.thread)
-                    setIsOpen(false)
-                  }}
-                >
-                  {item.title}
-                </Button>
-              ))}
-            </div>
-          </div>
+      {/* History Section */}
+      <div className="flex-1 overflow-y-auto px-2">
+        {isAuthenticated && history.map((item) => (
+          <Button
+            key={item.id}
+            variant="ghost"
+            className="w-full justify-start text-left text-sm text-white/60 hover:text-white truncate px-3 py-2 rounded-lg"
+            onClick={() => {
+              onHistoryItemClick?.(item.thread)
+              setIsOpen(false)
+            }}
+          >
+            {item.title}
+          </Button>
         ))}
       </div>
 
-      <div className="p-4 border-t border-white/10">
-        <div className="text-sm font-medium mb-2">Connection Status</div>
-        {isConnected ? (
-          <div className="space-y-2">
-            <div className="text-sm text-white/60">Connected as {username}</div>
-            <Button
-              variant="ghost"
-              className="w-full justify-center text-white/60 hover:text-white"
-              onClick={handleDisconnect}
-            >
-              Disconnect
-            </Button>
+      {/* Bottom Section */}
+      <div className="mt-auto px-4 pb-16 space-y-4">
+        {/* Auth Section */}
+        {!isAuthenticated ? (
+          <div className="rounded-xl border border-white/10 overflow-hidden">
+            {showAuthPanel ? (
+              <div className="p-4 space-y-3">
+                <div className="text-base font-medium mb-1">Sign in</div>
+                <Input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Username"
+                  className="bg-[#1C1C1C] border-0"
+                />
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  className="bg-[#1C1C1C] border-0"
+                />
+                {error && (
+                  <div className="text-sm text-red-500">
+                    {error}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleLogin}
+                    disabled={!username || !password}
+                  >
+                    Sign In
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleRegister}
+                    disabled={!username || !password}
+                  >
+                    Sign Up
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4">
+                <div className="text-base font-medium mb-1">Subscribe to save history</div>
+                <div className="text-sm text-white/60 mb-3">
+                  Sign in to access your analysis history and preferences.
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full justify-center gap-2"
+                  onClick={() => setShowAuthPanel(true)}
+                >
+                  <LogIn className="h-4 w-4" />
+                  Sign in
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="space-y-2">
-            <Input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter username"
-              className="bg-[#1C1C1C] border-0" // Changed to a more darker color
-            />
+          <div className="flex items-center justify-between px-2 py-1">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+                {username.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="text-sm text-white/60">{username}</div>
+            </div>
             <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleConnect}
-              disabled={!username.trim()}
+              variant="ghost"
+              size="icon"
+              className="text-white/60 hover:text-white"
+              onClick={handleLogout}
             >
-              Connect
+              <Settings className="h-4 w-4" />
             </Button>
           </div>
         )}
+
+        {/* Enterprise Upgrade Section */}
+        <div className="rounded-xl border border-white/10 p-4 space-y-2">
+          <div className="text-base font-medium">Try Enterprise</div>
+          <div className="text-sm text-white/60">
+            Upgrade for advanced analysis and more features.
+          </div>
+          <Button
+            variant="ghost"
+            className="w-full justify-between text-sm text-white/60 hover:text-white mt-2"
+          >
+            Learn More
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   )
