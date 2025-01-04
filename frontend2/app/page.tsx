@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowRight, Share2, RefreshCw, ThumbsUp, ThumbsDown, Copy, MoreHorizontal } from 'lucide-react'
+import { ArrowRight, Share2, RefreshCw, ThumbsUp, ThumbsDown, Copy, MoreHorizontal, 
+  Image, FileText, Code, PenTool, BarChart2, MoreHorizontal as More } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -85,8 +86,42 @@ const ActionToolbar = ({ onShare, onRewrite, onLike, onDislike, onCopy, onMore }
         className="text-white/60 hover:text-white hover:bg-white/10"
         onClick={onMore}
       >
-        <MoreHorizontal className="h-4 w-4" />
+        <More className="h-4 w-4" />
       </Button>
+    </div>
+  )
+}
+
+interface SuggestionBoxProps {
+  onSuggestionClick: (suggestion: string) => void
+}
+
+const SuggestionBox = ({ onSuggestionClick }: SuggestionBoxProps) => {
+  // Example follow-up suggestions
+  const FOLLOW_UP_SUGGESTIONS = [
+    "Add a trend line to the visualization",
+    "Compare with teammate's performance",
+    "Show race-by-race breakdown",
+    "Analyze qualifying vs race performance"
+  ]
+
+  return (
+    <div className="w-full mt-4">
+      <h3 className="text-sm text-white/60 mb-2 px-2">Try these follow-ups:</h3>
+      <div className="bg-transparent border border-white/10 rounded-xl p-2">
+        <div className="grid grid-cols-1 gap-2">
+          {FOLLOW_UP_SUGGESTIONS.map((suggestion, index) => (
+            <Button 
+              key={index}
+              variant="ghost" 
+              className="w-full justify-start gap-2 text-white/60 hover:text-white text-sm"
+              onClick={() => onSuggestionClick(suggestion)}
+            >
+              {suggestion}
+            </Button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
@@ -275,29 +310,29 @@ export default function Page() {
                 <QueryResults results={item.result} />
                 <ActionToolbar
                   onShare={() => {
-                    // Implement share functionality
                     navigator.clipboard.writeText(item.query)
                   }}
                   onRewrite={() => {
-                    // Set the follow-up query to the current query for editing
                     setFollowUpQuery(item.query)
                   }}
                   onLike={() => {
-                    // Implement like functionality
                     console.log('Liked:', item.id)
                   }}
                   onDislike={() => {
-                    // Implement dislike functionality
                     console.log('Disliked:', item.id)
                   }}
                   onCopy={() => {
-                    // Copy the query and results
                     const resultText = item.result.summary || 'No analysis available'
                     navigator.clipboard.writeText(`${item.query}\n\n${resultText}`)
                   }}
                   onMore={() => {
-                    // Implement more options functionality
                     console.log('More options:', item.id)
+                  }}
+                />
+                <SuggestionBox 
+                  onSuggestionClick={(suggestion) => {
+                    // For now, set as follow-up query with the suggestion
+                    setFollowUpQuery(`${suggestion}: ${item.query}`)
                   }}
                 />
               </div>
