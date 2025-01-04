@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Share2, RefreshCw, ThumbsUp, ThumbsDown, Copy, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -22,6 +22,73 @@ interface QueryThread {
   query: string;
   result: AnalysisResult;
   isFollowUp: boolean;
+}
+
+interface ActionToolbarProps {
+  onShare: () => void
+  onRewrite: () => void
+  onLike: () => void
+  onDislike: () => void
+  onCopy: () => void
+  onMore: () => void
+}
+
+const ActionToolbar = ({ onShare, onRewrite, onLike, onDislike, onCopy, onMore }: ActionToolbarProps) => {
+  return (
+    <div className="flex items-center gap-2 mt-4 border-t border-white/10 pt-4">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-white/60 hover:text-white hover:bg-white/10"
+        onClick={onShare}
+      >
+        <Share2 className="h-4 w-4 mr-2" />
+        Share
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-white/60 hover:text-white hover:bg-white/10"
+        onClick={onRewrite}
+      >
+        <RefreshCw className="h-4 w-4 mr-2" />
+        Rewrite
+      </Button>
+      <div className="flex-1" />
+      <Button
+        variant="ghost"
+        size="icon"
+        className="text-white/60 hover:text-white hover:bg-white/10"
+        onClick={onLike}
+      >
+        <ThumbsUp className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="text-white/60 hover:text-white hover:bg-white/10"
+        onClick={onDislike}
+      >
+        <ThumbsDown className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="text-white/60 hover:text-white hover:bg-white/10"
+        onClick={onCopy}
+      >
+        <Copy className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="text-white/60 hover:text-white hover:bg-white/10"
+        onClick={onMore}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </Button>
+    </div>
+  )
 }
 
 export default function Page() {
@@ -206,6 +273,33 @@ export default function Page() {
                   <div className="text-sm font-medium">{item.query}</div>
                 </div>
                 <QueryResults results={item.result} />
+                <ActionToolbar
+                  onShare={() => {
+                    // Implement share functionality
+                    navigator.clipboard.writeText(item.query)
+                  }}
+                  onRewrite={() => {
+                    // Set the follow-up query to the current query for editing
+                    setFollowUpQuery(item.query)
+                  }}
+                  onLike={() => {
+                    // Implement like functionality
+                    console.log('Liked:', item.id)
+                  }}
+                  onDislike={() => {
+                    // Implement dislike functionality
+                    console.log('Disliked:', item.id)
+                  }}
+                  onCopy={() => {
+                    // Copy the query and results
+                    const resultText = item.result.summary || 'No analysis available'
+                    navigator.clipboard.writeText(`${item.query}\n\n${resultText}`)
+                  }}
+                  onMore={() => {
+                    // Implement more options functionality
+                    console.log('More options:', item.id)
+                  }}
+                />
               </div>
             ))}
 
