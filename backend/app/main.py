@@ -2,7 +2,7 @@
 import asyncio
 import logging
 from typing import Dict, Any, List, Optional
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.database import engine, Base, get_db
 from app.auth.routes import router as auth_router
 from app.models.user import User, QueryHistory
+from app.auth.utils import get_current_user
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -373,18 +374,64 @@ async def analyze_data(request: Dict[str, Any]):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/query_history", response_model=QueryResponse)
-async def save_query_history(request: Dict[str, Any]):
+async def save_query_history(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """Save query and results to history"""
     try:
-        # For now, just log the query and return success
-        # In a real implementation, this would save to a database
-        logger.info(f"Saving query to history: {request.get('query')}")
+        # Get request body
+        body = await request.json()
+        
+        # Create new query history entry
+        query_history = QueryHistory(
+            user_id=current_user.id,
+            query=body.get('query'),
+            result=body.get('data', {})
+        )
+        db.add(query_history)
+        db.commit()
+        db.refresh(query_history)
+
         return {
             "status": "success",
             "data": {"saved": True}
         }
     except Exception as e:
         logger.exception("Error saving query history")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/query_history", response_model=QueryResponse)
+async def get_query_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Get user's query history"""
+    try:
+        queries = db.query(QueryHistory).filter(
+            QueryHistory.user_id == current_user.id
+        ).order_by(QueryHistory.created_at.desc()).all()
+        
+        return {
+            "status": "success",
+            "data": {
+                "queries": [
+                    {
+                        "id": str(q.id),
+                        "title": q.query,
+                        "thread": [
+                            {
+                                "id": str(q.id),
+                                "query": q.query,
+                                "result": q.result,
+                                "timestamp": q.created_at.isoformat()
+                            }
+                        ],
+                        "timestamp": q.created_at.isoformat()
+                    } for q in queries
+                ]
+            }
+        }
+    except Exception as e:
+        logger.exception("Error fetching query history")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import * as React from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Menu, Hexagon, LogIn, LogOut, Plus, Users, History as HistoryIcon, ArrowRight, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Label } from "@/components/ui/label"
 
 interface HistoryItem {
   id: string;
@@ -17,6 +19,111 @@ interface HistoryItem {
 interface SidebarProps {
   className?: string;
   onHistoryItemClick?: (thread: any[]) => void;
+}
+
+const ControlledInput = React.forwardRef<
+  HTMLInputElement,
+  React.ComponentPropsWithoutRef<'input'> & { onValueChange: (value: string) => void }
+>(({ onValueChange, ...props }, ref) => {
+  const inputRef = useRef<HTMLInputElement>(null)
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation()
+    onValueChange(e.target.value)
+  }
+
+  return (
+    <Input
+      {...props}
+      ref={inputRef}
+      onChange={handleChange}
+      className={cn("bg-[#1C1C1C] border-0 focus:ring-1 focus:ring-white/20", props.className)}
+    />
+  )
+})
+ControlledInput.displayName = 'ControlledInput'
+
+const LoginForm = ({
+  onLogin,
+  onRegister,
+  error,
+}: {
+  onLogin: (username: string, password: string) => void
+  onRegister: (username: string, password: string) => void
+  error?: string | null
+}) => {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [isRegistering, setIsRegistering] = useState(false)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (isRegistering) {
+      onRegister(username, password)
+    } else {
+      onLogin(username, password)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6 p-4">
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-white/5">
+          <Hexagon className="h-5 w-5" />
+        </div>
+
+        <div className="text-center text-sm text-white/60">
+          {isRegistering ? "Already have an account? " : "Don't have an account? "}
+          <button
+            onClick={() => setIsRegistering(!isRegistering)}
+            className="text-white hover:underline underline-offset-4"
+          >
+            {isRegistering ? "Sign in" : "Sign up"}
+          </button>
+        </div>
+      </div>
+      
+      <form onSubmit={handleSubmit}>
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="username">Username</Label>
+            <Input
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="username"
+              className="bg-[#1C1C1C] border-white/10"
+              required
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="bg-[#1C1C1C] border-white/10"
+              required
+            />
+          </div>
+          {error && (
+            <div className="text-sm text-red-500">
+              {error}
+            </div>
+          )}
+          <Button
+            type="submit"
+            className="w-full bg-white/10 hover:bg-white/20 text-white"
+            disabled={!username || !password}
+          >
+            {isRegistering ? "Sign up" : "Sign in"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  )
 }
 
 export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
@@ -37,14 +144,14 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
     }
   }, [])
 
-  const handleLogin = async () => {
+  const handleLoginSubmit = async (username: string, password: string) => {
     try {
-      const response = await fetch('/api/auth/token', {
+      const response = await fetch('/auth/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          username: username,
-          password: password,
+          username,
+          password,
         }),
       })
 
@@ -53,24 +160,32 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
         localStorage.setItem('auth_token', data.access_token)
         setIsAuthenticated(true)
         setError(null)
+        setUsername(username)
         fetchUserHistory()
       } else {
-        setError(data.detail || 'Login failed')
+        // Handle structured error response
+        const errorMessage = typeof data.detail === 'string' 
+          ? data.detail 
+          : Array.isArray(data.detail)
+          ? data.detail[0]?.msg || 'Login failed'
+          : 'Login failed'
+        setError(errorMessage)
       }
     } catch (err) {
       setError('Failed to connect to server')
+      console.error('Login error:', err)
     }
   }
 
-  const handleRegister = async () => {
+  const handleRegisterSubmit = async (username: string, password: string) => {
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('/auth/register?' + new URLSearchParams({
+        username,
+        password,
+        email: ''  // Optional email as empty string
+      }), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: username,
-          password: password,
-        }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       })
 
       const data = await response.json()
@@ -78,12 +193,20 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
         localStorage.setItem('auth_token', data.access_token)
         setIsAuthenticated(true)
         setError(null)
+        setUsername(username)
         fetchUserHistory()
       } else {
-        setError(data.detail || 'Registration failed')
+        // Handle structured error response
+        const errorMessage = typeof data.detail === 'string' 
+          ? data.detail 
+          : Array.isArray(data.detail)
+          ? data.detail[0]?.msg || 'Registration failed'
+          : 'Registration failed'
+        setError(errorMessage)
       }
     } catch (err) {
       setError('Failed to connect to server')
+      console.error('Registration error:', err)
     }
   }
 
@@ -101,13 +224,18 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
 
     try {
       const response = await fetch('/api/v1/query_history', {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
         }
       })
       if (response.ok) {
         const data = await response.json()
-        setHistory(data.queries || [])
+        if (data.status === 'success' && data.data?.queries) {
+          setHistory(data.data.queries)
+        }
+      } else {
+        console.error('Failed to fetch history:', await response.text())
       }
     } catch (err) {
       console.error('Failed to fetch history:', err)
@@ -179,45 +307,11 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
         {!isAuthenticated ? (
           <div className="rounded-xl border border-white/10 overflow-hidden">
             {showAuthPanel ? (
-              <div className="p-4 space-y-3">
-                <div className="text-base font-medium mb-1">Sign in</div>
-                <Input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Username"
-                  className="bg-[#1C1C1C] border-0"
-                />
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  className="bg-[#1C1C1C] border-0"
-                />
-                {error && (
-                  <div className="text-sm text-red-500">
-                    {error}
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={handleLogin}
-                    disabled={!username || !password}
-                  >
-                    Sign In
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={handleRegister}
-                    disabled={!username || !password}
-                  >
-                    Sign Up
-                  </Button>
-                </div>
-              </div>
+              <LoginForm
+                onLogin={handleLoginSubmit}
+                onRegister={handleRegisterSubmit}
+                error={error}
+              />
             ) : (
               <div className="p-4">
                 <div className="text-base font-medium mb-1">Subscribe to save history</div>

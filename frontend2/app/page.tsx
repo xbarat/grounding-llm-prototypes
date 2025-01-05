@@ -140,102 +140,92 @@ export default function Page() {
     }
   };
 
-  const handleAnalysis = async (queryText: string, isFollowUp: boolean = false) => {
-    if (!queryText.trim()) return
-
+  const handleAnalysis = async (query: string, isFollowUp: boolean = false) => {
     setIsLoading(true)
     setError(null)
-
     try {
-      if (!isFollowUp) {
-        // Step 1: Process the natural language query
-        const processResponse = await fetch(ENDPOINTS.PROCESS_QUERY, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: queryText })
-        })
-
-        const processData: ApiResponse<QueryRequirements> = await processResponse.json()
-        if (processData.status !== 'success' || !processData.data) {
-          throw new Error(processData.detail || 'Failed to process query')
-        }
-
-        // Step 2: Fetch F1 data based on requirements
-        const fetchResponse = await fetch(ENDPOINTS.FETCH_DATA, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(processData.data)
-        })
-
-        const fetchData: ApiResponse<any> = await fetchResponse.json()
-        if (fetchData.status !== 'success' || !fetchData.data) {
-          throw new Error(fetchData.detail || 'Failed to fetch data')
-        }
-
-        // Step 3: Generate analysis and visualization
-        const analyzeResponse = await fetch(ENDPOINTS.ANALYZE_DATA, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: queryText,
-            data: fetchData.data,
-            requirements: processData.data
-          })
-        })
-
-        const analyzeData: ApiResponse<AnalysisResult> = await analyzeResponse.json()
-        if (analyzeData.status !== 'success' || !analyzeData.data) {
-          throw new Error(analyzeData.detail || 'Failed to analyze data')
-        }
-
-        setQueryThread([{
-          id: Date.now().toString(),
-          query: queryText,
-          result: analyzeData.data,
-          isFollowUp: false
-        }])
-
-        // Step 4: Save to query history (optional)
-        fetch(ENDPOINTS.QUERY_HISTORY, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: queryText,
-            requirements: processData.data,
-            result: analyzeData.data
-          })
-        }).catch(console.error) // Non-blocking
-      } else {
-        // For follow-up queries, use the existing data
-        const analyzeResponse = await fetch(ENDPOINTS.ANALYZE_DATA, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: queryText,
-            data: queryThread[queryThread.length - 1].result.rawData,
-            requirements: {
-              endpoint: '/api/f1/follow-up',
-              params: {}
-            }
-          })
-        })
-
-        const analyzeData: ApiResponse<AnalysisResult> = await analyzeResponse.json()
-        if (analyzeData.status !== 'success' || !analyzeData.data) {
-          throw new Error(analyzeData.detail || 'Failed to analyze data')
-        }
-
-        setQueryThread(prev => [...prev, {
-          id: Date.now().toString(),
-          query: queryText,
-          result: analyzeData.data,
-          isFollowUp: true
-        } as QueryThread])
+      // Process query
+      const processResponse = await fetch('/api/v1/process_query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      })
+      
+      if (!processResponse.ok) {
+        throw new Error('Failed to process query')
       }
+      
+      const processData = await processResponse.json()
+      const requirements = processData.data
+      
+      // Fetch data
+      const fetchResponse = await fetch('/api/v1/fetch_data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requirements)
+      })
+      
+      if (!fetchResponse.ok) {
+        throw new Error('Failed to fetch data')
+      }
+      
+      const fetchData = await fetchResponse.json()
+      
+      // Analyze data
+      const analyzeResponse = await fetch('/api/v1/analyze_data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          data: fetchData.data,
+          requirements
+        })
+      })
+      
+      if (!analyzeResponse.ok) {
+        throw new Error('Failed to analyze data')
+      }
+      
+      const analyzeData = await analyzeResponse.json()
+      
+      // Save to history if authenticated
+      const token = localStorage.getItem('auth_token')
+      if (token) {
+        try {
+          const historyResponse = await fetch('/api/v1/query_history', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              query,
+              data: analyzeData.data
+            })
+          })
+          
+          if (!historyResponse.ok) {
+            console.error('Failed to save to history:', await historyResponse.text())
+          }
+        } catch (err) {
+          console.error('Error saving to history:', err)
+        }
+      }
+      
+      // Update thread
+      const newThread: QueryThread = {
+        id: Date.now().toString(),
+        query,
+        result: analyzeData.data,
+        isFollowUp
+      }
+      
+      setQueryThread(prev => [...prev, newThread])
+      setIsLoading(false)
+      
     } catch (err) {
       console.error('Analysis error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to analyze data')
-    } finally {
+      setError(err instanceof Error ? err.message : 'An error occurred')
       setIsLoading(false)
     }
   }
