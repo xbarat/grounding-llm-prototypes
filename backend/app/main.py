@@ -388,7 +388,8 @@ async def save_query_history(
         query_history = QueryHistory(
             user_id=current_user.id,
             query=body.get('query'),
-            result=body.get('data', {})
+            result=body.get('data', {}),
+            parent_id=body.get('parent_id')  # Get parent_id if this is a follow-up query
         )
         db.add(query_history)
         db.commit()
@@ -406,8 +407,10 @@ async def save_query_history(
 async def get_query_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Get user's query history"""
     try:
-        queries = db.query(QueryHistory).filter(
-            QueryHistory.user_id == current_user.id
+        # Get only root queries (those without parent_id)
+        root_queries = db.query(QueryHistory).filter(
+            QueryHistory.user_id == current_user.id,
+            QueryHistory.parent_id.is_(None)
         ).order_by(QueryHistory.created_at.desc()).all()
         
         return {
@@ -419,14 +422,14 @@ async def get_query_history(db: Session = Depends(get_db), current_user: User = 
                         "title": q.query,
                         "thread": [
                             {
-                                "id": str(q.id),
-                                "query": q.query,
-                                "result": q.result,
-                                "timestamp": q.created_at.isoformat()
-                            }
+                                "id": str(thread_q.id),
+                                "query": thread_q.query,
+                                "result": thread_q.result,
+                                "timestamp": thread_q.created_at.isoformat()
+                            } for thread_q in [q] + q.follow_ups
                         ],
                         "timestamp": q.created_at.isoformat()
-                    } for q in queries
+                    } for q in root_queries
                 ]
             }
         }

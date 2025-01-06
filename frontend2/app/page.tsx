@@ -200,7 +200,8 @@ export default function Page() {
             },
             body: JSON.stringify({
               query,
-              data: analyzeData.data
+              data: analyzeData.data,
+              parent_id: isFollowUp && queryThread.length > 0 ? queryThread[0].id : null
             })
           })
           

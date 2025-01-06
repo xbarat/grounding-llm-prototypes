@@ -12,7 +12,12 @@ import { Label } from "@/components/ui/label"
 interface HistoryItem {
   id: string;
   title: string;
-  thread: any[];
+  thread: Array<{
+    id: string;
+    query: string;
+    result: any;
+    timestamp: string;
+  }>;
   timestamp: string;
 }
 
@@ -138,8 +143,13 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
   useEffect(() => {
     // Check for existing token on mount
     const token = localStorage.getItem('auth_token')
+    const savedUsername = localStorage.getItem('username')  // Get saved username
     if (token) {
       setIsAuthenticated(true)
+      if (savedUsername) {
+        console.log('Restoring username:', savedUsername)  // Debug log
+        setUsername(savedUsername)
+      }
       fetchUserHistory()
     }
   }, [])
@@ -157,7 +167,9 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
 
       const data = await response.json()
       if (response.ok) {
+        console.log('Login successful, setting username:', username)  // Debug log
         localStorage.setItem('auth_token', data.access_token)
+        localStorage.setItem('username', username)  // Save username
         setIsAuthenticated(true)
         setError(null)
         setUsername(username)
@@ -212,6 +224,7 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token')
+    localStorage.removeItem('username')  // Remove saved username
     setIsAuthenticated(false)
     setUsername('')
     setPassword('')
@@ -223,16 +236,27 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
     if (!token) return
 
     try {
+      console.log('Fetching history with token:', token)
       const response = await fetch('/api/v1/query_history', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       })
+      console.log('History response:', response.status)
       if (response.ok) {
         const data = await response.json()
+        console.log('History data:', data)
         if (data.status === 'success' && data.data?.queries) {
-          setHistory(data.data.queries)
+          // Validate history data structure
+          const queries = data.data.queries as HistoryItem[]
+          console.log('Parsed history items:', queries.map(q => ({
+            id: q.id,
+            title: q.title,
+            threadCount: q.thread?.length || 0
+          })))
+          setHistory(queries)
         }
       } else {
         console.error('Failed to fetch history:', await response.text())
@@ -287,17 +311,23 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
       {/* History Section */}
       <div className="flex-1 overflow-y-auto px-2">
         {isAuthenticated && history.map((item) => (
-          <Button
-            key={item.id}
-            variant="ghost"
-            className="w-full justify-start text-left text-sm text-white/60 hover:text-white truncate px-3 py-2 rounded-lg"
-            onClick={() => {
-              onHistoryItemClick?.(item.thread)
-              setIsOpen(false)
-            }}
-          >
-            {item.title}
-          </Button>
+          <div key={item.id} className="mb-2">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-left text-sm text-white/60 hover:text-white truncate px-3 py-2 rounded-lg"
+              onClick={() => {
+                onHistoryItemClick?.(item.thread)
+                setIsOpen(false)
+              }}
+            >
+              {item.title}
+              {item.thread.length > 1 && (
+                <span className="ml-2 text-xs text-white/40">
+                  +{item.thread.length - 1} follow-ups
+                </span>
+              )}
+            </Button>
+          </div>
         ))}
       </div>
 
@@ -332,10 +362,10 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
         ) : (
           <div className="flex items-center justify-between px-2 py-1">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
                 {username.slice(0, 2).toUpperCase()}
               </div>
-              <div className="text-sm text-white/60">{username}</div>
+              <div className="text-sm font-medium text-white">{username}</div>
             </div>
             <Button
               variant="ghost"

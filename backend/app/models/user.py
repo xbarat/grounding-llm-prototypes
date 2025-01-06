@@ -21,9 +21,11 @@ class QueryHistory(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
+    parent_id = Column(Integer, ForeignKey("query_history.id"), nullable=True)  # For tracking threads
     query = Column(String)
     result = Column(JSON)  # Store the entire analysis result
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
-    user = relationship("User", back_populates="queries") 
+    user = relationship("User", back_populates="queries")
+    parent = relationship("QueryHistory", remote_side=[id], backref="follow_ups") 
