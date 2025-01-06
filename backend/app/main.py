@@ -17,7 +17,7 @@ from app.models.user import User, QueryHistory
 from app.auth.utils import get_current_user
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Create database tables
@@ -35,8 +35,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Debug middleware to log all requests
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.debug(f"Incoming request: {request.method} {request.url.path}")
+    logger.debug(f"Headers: {request.headers}")
+    response = await call_next(request)
+    logger.debug(f"Response status: {response.status_code}")
+    return response
+
+# Print all registered routes for debugging
+def log_registered_routes():
+    logger.debug("Registered routes:")
+    for route in app.routes:
+        logger.debug(f"{route.methods} {route.path}")
+
 # Include authentication routes
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
+
+# Log all routes after mounting
+log_registered_routes()
 
 # Request/Response Models
 class QueryRequest(BaseModel):

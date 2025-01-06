@@ -156,69 +156,95 @@ export function Sidebar({ className, onHistoryItemClick }: SidebarProps) {
 
   const handleLoginSubmit = async (username: string, password: string) => {
     try {
-      const response = await fetch('/auth/token', {
+      // First try OAuth2 form endpoint
+      const formData = new URLSearchParams()
+      formData.append('username', username)
+      formData.append('password', password)
+      
+      let response = await fetch('/auth/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          username,
-          password,
-        }),
+        body: formData
       })
 
+      // If form endpoint fails, try JSON endpoint
+      if (response.status === 404) {
+        response = await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        })
+      }
+
+      if (!response.ok) {
+        const text = await response.text()
+        let errorMessage
+        try {
+          const data = JSON.parse(text)
+          errorMessage = data.detail || 'Login failed'
+        } catch {
+          errorMessage = text || 'Login failed'
+        }
+        setError(errorMessage)
+        return
+      }
+
       const data = await response.json()
-      if (response.ok) {
-        console.log('Login successful, setting username:', username)  // Debug log
+      if (data.access_token) {
         localStorage.setItem('auth_token', data.access_token)
-        localStorage.setItem('username', username)  // Save username
+        localStorage.setItem('username', username)
         setIsAuthenticated(true)
         setError(null)
         setUsername(username)
-        fetchUserHistory()
+        await fetchUserHistory()
       } else {
-        // Handle structured error response
-        const errorMessage = typeof data.detail === 'string' 
-          ? data.detail 
-          : Array.isArray(data.detail)
-          ? data.detail[0]?.msg || 'Login failed'
-          : 'Login failed'
-        setError(errorMessage)
+        setError('Invalid response from server')
       }
     } catch (err) {
-      setError('Failed to connect to server')
       console.error('Login error:', err)
+      setError('Failed to connect to server')
     }
   }
 
   const handleRegisterSubmit = async (username: string, password: string) => {
     try {
-      const response = await fetch('/auth/register?' + new URLSearchParams({
-        username,
-        password,
-        email: ''  // Optional email as empty string
-      }), {
+      const response = await fetch('/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          password,
+          email: null
+        })
       })
 
+      if (!response.ok) {
+        const text = await response.text()
+        let errorMessage
+        try {
+          const data = JSON.parse(text)
+          errorMessage = data.detail || 'Registration failed'
+        } catch {
+          errorMessage = text || 'Registration failed'
+        }
+        setError(errorMessage)
+        return
+      }
+
       const data = await response.json()
-      if (response.ok) {
+      if (data.access_token) {
         localStorage.setItem('auth_token', data.access_token)
+        localStorage.setItem('username', username)
         setIsAuthenticated(true)
         setError(null)
         setUsername(username)
-        fetchUserHistory()
+        await fetchUserHistory()
       } else {
-        // Handle structured error response
-        const errorMessage = typeof data.detail === 'string' 
-          ? data.detail 
-          : Array.isArray(data.detail)
-          ? data.detail[0]?.msg || 'Registration failed'
-          : 'Registration failed'
-        setError(errorMessage)
+        setError('Invalid response from server')
       }
     } catch (err) {
-      setError('Failed to connect to server')
       console.error('Registration error:', err)
+      setError('Failed to connect to server')
     }
   }
 
