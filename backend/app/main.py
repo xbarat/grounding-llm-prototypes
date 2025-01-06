@@ -1,15 +1,19 @@
 """Main application integrating F1 data pipeline with analysis"""
 import asyncio
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Set
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.routing import APIRoute
 from pydantic import BaseModel
 import pandas as pd
 from app.pipeline.data2 import DataPipeline, DataRequirements, DataResponse
 from app.analyst.generate import generate_code, extract_code_block, execute_code_safely
 import re
 from sqlalchemy.orm import Session
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+import os
 
 from app.database import engine, Base, get_db
 from app.auth.routes import router as auth_router
@@ -20,11 +24,33 @@ from app.auth.utils import get_current_user
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+# Initialize Sentry at the top of the file
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    traces_sample_rate=1.0,
+    profiles_sample_rate=1.0,
+    integrations=[FastApiIntegration()]
+)
+
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
 # Initialize FastAPI app
 app = FastAPI(title="F1 Data Analysis API")
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Railway deployment."""
+    return {"status": "healthy"}
+
+# Request/Response Models
+class QueryResponse(BaseModel):
+    status: str
+    data: Optional[Dict[str, Any]] = None
+    detail: Optional[str] = None
+
+class QueryRequest(BaseModel):
+    query: str
 
 # Configure CORS
 app.add_middleware(
@@ -48,22 +74,55 @@ async def log_requests(request: Request, call_next):
 def log_registered_routes():
     logger.debug("Registered routes:")
     for route in app.routes:
-        logger.debug(f"{route.methods} {route.path}")
+        if isinstance(route, APIRoute):
+            logger.debug(f"{route.methods} {route.path}")
 
 # Include authentication routes
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 
+@app.post("/analyze", response_model=QueryResponse)
+async def analyze_query(
+    request: QueryRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> QueryResponse:
+    """Process an F1 data analysis query"""
+    try:
+        # Get data requirements based on query
+        requirements = get_requirements_for_query(request.query)
+        
+        # Process the query
+        result = await analyze_f1_data(request.query, requirements)
+        
+        # Save query to history
+        query_history = QueryHistory(
+            user_id=current_user.id,
+            query=request.query,
+            success=result["success"]
+        )
+        db.add(query_history)
+        db.commit()
+        
+        if result["success"]:
+            return QueryResponse(
+                status="success",
+                data=result
+            )
+        else:
+            return QueryResponse(
+                status="error",
+                detail=result["error"]
+            )
+            
+    except Exception as e:
+        logger.exception("Error processing query")
+        return QueryResponse(
+            status="error",
+            detail=str(e)
+        )
+
 # Log all routes after mounting
 log_registered_routes()
-
-# Request/Response Models
-class QueryRequest(BaseModel):
-    query: str
-
-class QueryResponse(BaseModel):
-    status: str
-    data: Optional[Dict[str, Any]] = None
-    detail: Optional[str] = None
 
 async def analyze_f1_data(query: str, requirements: DataRequirements) -> Dict[str, Any]:
     """Process an F1 query from data retrieval through analysis"""
@@ -301,12 +360,13 @@ async def fetch_data(requirements: DataRequirements):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/analyze_data", response_model=QueryResponse)
-async def analyze_data(request: Dict[str, Any]):
+async def analyze_data(request: Request):
     """Generate analysis and visualization from F1 data"""
     try:
-        query = request.get("query")
-        data = request.get("data")
-        requirements = request.get("requirements", {})
+        body = await request.json()
+        query = body.get("query")
+        data = body.get("data")
+        requirements = body.get("requirements", {})
         
         if not all([query, data, requirements]):
             raise ValueError("Missing required fields")
@@ -454,6 +514,20 @@ async def get_query_history(db: Session = Depends(get_db), current_user: User = 
     except Exception as e:
         logger.exception("Error fetching query history")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/")
+async def root():
+    """Root endpoint that redirects to API documentation"""
+    return {
+        "status": "success",
+        "message": "F1 Analysis API is running",
+        "endpoints": {
+            "process_query": "/api/v1/process_query",
+            "fetch_data": "/api/v1/fetch_data",
+            "analyze_data": "/api/v1/analyze_data",
+            "query_history": "/api/v1/query_history"
+        }
+    }
 
 if __name__ == "__main__":
     asyncio.run(test_analysis()) 

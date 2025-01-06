@@ -6,31 +6,44 @@ ergast_py-1.1.0
 # Python cache files
 __pycache__/
 *.py[cod]
-
-# Virtual environment
+*$py.class
+*.so
+.Python
 venv/
-env/
 ENV/
-.venv/
-venv311
-.venv311
 
-# IDE specific files
+# Node
+node_modules/
+.next/
+out/
+build/
+.DS_Store
+
+# Sentry
+.sentryclirc
+
+# IDE
 .idea/
 .vscode/
+*.swp
+*.swo
 
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints/
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Environment variables
 .env
+.env.local
+.env.*.local
+.env.production
+.env.staging
 
 # SQLite database files
 *.sqlite3
 *.db
-
-# Logs
-*.log
 
 # Byte-compiled files
 *.pyc
