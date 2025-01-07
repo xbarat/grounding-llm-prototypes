@@ -9,7 +9,6 @@ import { Card } from '@/components/ui/card'
 import { QueryResults } from '@/components/query-results'
 import { ENDPOINTS, type ApiResponse, type QueryRequirements, type AnalysisResult } from '@/lib/config'
 import { Sidebar } from '@/components/sidebar'
-import * as Sentry from "@sentry/nextjs";
 
 // Example F1 queries that showcase our analysis capabilities
 const EXAMPLE_QUERIES = [
