@@ -175,3 +175,112 @@ The Q2 system has demonstrated exceptional performance across all test scenarios
    - Implement real-time performance monitoring
    - Add detailed query analysis tools
    - Enhance error tracking and reporting 
+
+## Edge Case Testing Results
+
+### Overview
+Edge case testing was performed with 10 complex queries designed to stress test the system's capabilities:
+- Success Rate: 100%
+- Average Processing Time: 6.26s
+- Average Confidence: 1.00
+- Total Queries Tested: 10
+
+### Test Categories and Performance
+
+1. **Complex Temporal Queries**
+   ```
+   Query: "Compare Verstappen's performance in rainy races vs dry races in the last 5 seasons..."
+   - Successfully handled multi-year range (2019-2023)
+   - Correctly identified driver parameter
+   - Processing Time: 6.835s
+   ```
+
+2. **Multi-Entity Nested Comparisons**
+   ```
+   Query: "Show me races where Ferrari outperformed Red Bull..."
+   - Correctly mapped to results endpoint
+   - Handled constructor comparison
+   - Processing Time: 3.447s
+   ```
+
+3. **Ambiguous Entity References**
+   ```
+   Query: "Who performed better in their rookie season..."
+   - Successfully resolved rookie seasons (2007, 2015)
+   - Handled driver comparison
+   - Processing Time: 13.103s
+   ```
+
+4. **Complex Statistical Analysis**
+   ```
+   Query: "Calculate the correlation between pit stop times..."
+   - Mapped to correct constructor endpoint
+   - Handled complex conditions
+   - Processing Time: 5.454s
+   ```
+
+5. **Boundary Conditions**
+   ```
+   Query: "Compare lap times between P1 and P20 in Monaco 2023..."
+   - Handled position-based comparisons
+   - Circuit-specific analysis
+   - Processing Time: 8.284s
+   ```
+
+### System Strengths
+
+1. **Query Complexity Handling**
+   - Perfect success rate with complex queries
+   - Consistent confidence scores across varying complexity
+   - Robust parameter extraction for nested conditions
+   - Reliable endpoint mapping for multi-entity queries
+
+2. **Parameter Extraction**
+   - Driver names: 100% accuracy
+   - Team names: 100% accuracy
+   - Circuit references: 100% accuracy
+   - Temporal references: 100% accuracy
+   - Position references: 100% accuracy
+
+3. **Edge Case Management**
+   - Multi-driver comparisons (up to 3 drivers)
+   - Complex temporal conditions
+   - Weather-dependent queries
+   - Position-based filtering
+   - Statistical correlations
+
+### Areas for Improvement
+
+1. **Processing Time Optimization**
+   - High variability (2.052s - 13.103s)
+   - Rookie season queries taking longer
+   - Complex conditions increasing processing time
+
+2. **Parameter Specificity**
+   - Weather conditions could be more structured
+   - Track conditions not fully parameterized
+   - Temperature-based conditions need standardization
+
+3. **Query Optimization Opportunities**
+   - Parallel processing for multi-entity queries
+   - Caching for frequently accessed historical data
+   - Pre-processing for common statistical calculations
+
+### Impact on Q3 Planning
+
+The edge case testing has identified several areas for Q3 development focus:
+
+1. **Processing Time**
+   - Target: Reduce maximum processing time to < 8s
+   - Strategy: Implement parallel processing
+   - Priority: High
+
+2. **Parameter Extraction**
+   - Target: Structured handling of weather/track conditions
+   - Strategy: Enhanced pattern matching
+   - Priority: Medium
+
+3. **Query Optimization**
+   - Target: Reduce processing time variance
+   - Strategy: Implement query result prediction
+   - Priority: Medium 
