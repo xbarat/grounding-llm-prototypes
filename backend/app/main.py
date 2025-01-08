@@ -7,7 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
 import pandas as pd
-from app.pipeline.data2 import DataPipeline, DataRequirements, DataResponse
+from app.pipeline.data2 import DataPipeline, DataResponse
+from app.query.models import DataRequirements
 from app.analyst.generate import generate_code, extract_code_block, execute_code_safely
 import re
 from sqlalchemy.orm import Session

@@ -4,7 +4,16 @@ import asyncio
 from typing import Dict, Any, List, Optional, Union, cast
 import pandas as pd
 from datetime import datetime
-from ..query.models import DataRequirements
+from dataclasses import dataclass
+from ..query.models import DataRequirements, ProcessingResult
+
+@dataclass
+class DataResponse:
+    """Response from data pipeline"""
+    success: bool
+    data: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 class DataRequirementsSplitter:
     """Splits complex requirements into atomic fetchable units"""
