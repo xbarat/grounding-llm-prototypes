@@ -1,5 +1,36 @@
-streamlit>=1.24.0
+# Core dependencies
 pandas>=1.5.3
 httpx>=0.24.1
-plotly>=5.13.1
-python-dotenv>=1.0.0 
+python-dotenv>=1.0.0
+
+# API and Data Processing
+aiohttp>=3.8.5  # For async HTTP requests
+fastapi>=0.100.0  # For API endpoints
+pydantic>=2.0.0  # For data validation
+
+# Performance and Optimization
+asyncio>=3.4.3  # For async operations
+uvicorn>=0.22.0  # ASGI server
+orjson>=3.9.0  # Fast JSON parsing
+cachetools>=5.3.1  # For caching
+
+# Data Analysis and Visualization
+numpy>=1.24.0  # Required by pandas
+plotly>=5.13.1  # For data visualization
+streamlit>=1.24.0  # For dashboard UI
+
+# Testing and Development
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+black>=23.3.0  # Code formatting
+isort>=5.12.0  # Import sorting
+mypy>=1.4.1  # Type checking
+
+# Monitoring and Logging
+prometheus-client>=0.17.0  # For metrics
+python-json-logger>=2.0.7  # JSON formatted logging
+
+# Security
+python-jose[cryptography]>=3.3.0  # For JWT handling
+passlib[bcrypt]>=1.7.4  # For password hashing 
