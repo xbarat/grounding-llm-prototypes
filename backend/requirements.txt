@@ -33,7 +33,7 @@ langsmith==0.2.10
 matplotlib==3.10.0
 multidict==6.1.0
 numpy==2.2.1
-openai==1.59.4
+openai>=1.0.0,<2.0.0
 orjson==3.10.13
 packaging==24.2
 pandas==2.2.3
@@ -69,3 +69,5 @@ tzdata==2024.2
 urllib3==2.3.0
 uvicorn==0.34.0
 yarl==1.18.3
+streamlit>=1.24.0
+plotly>=5.13.1
