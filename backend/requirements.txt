@@ -18,7 +18,7 @@ fonttools==4.55.3
 frozenlist==1.5.0
 h11==0.14.0
 httpcore==1.0.7
-httpx==0.28.1
+httpx>=0.24.0,<1.0.0
 idna==3.10
 iniconfig==2.0.0
 jiter==0.8.2
@@ -36,7 +36,7 @@ numpy==2.2.1
 openai>=1.0.0,<2.0.0
 orjson==3.10.13
 packaging==24.2
-pandas==2.2.3
+pandas>=2.0.0,<3.0.0
 passlib==1.7.4
 pillow==11.1.0
 pluggy==1.5.0
@@ -48,7 +48,7 @@ pyparsing==3.2.1
 pytest==8.3.4
 pytest-asyncio==0.25.1
 python-dateutil==2.9.0.post0
-python-dotenv==1.0.1
+python-dotenv>=1.0.0,<2.0.0
 python-jose==3.3.0
 python-multipart==0.0.20
 pytz==2024.2

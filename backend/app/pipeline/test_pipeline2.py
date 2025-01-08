@@ -1,4 +1,5 @@
-"""Test pipeline with adapters for Q2 system"""
+"""Test pipeline with optimized adapters for Q2 system"""
+
 import asyncio
 import sys
 from pathlib import Path
@@ -6,7 +7,7 @@ import pandas as pd
 import httpx
 import traceback
 from collections import defaultdict
-from typing import Union, Dict, Any
+from typing import Union, Dict, Any, List, cast
 from datetime import datetime
 
 # Add the backend directory to Python path
@@ -16,7 +17,13 @@ if backend_dir not in sys.path:
 
 from app.pipeline.data2 import DataPipeline
 from app.query.processor import QueryProcessor
-from app.pipeline.adapters import QueryResultAdapter, ResultAdapter, ValidationAdapter, PipelineResult
+from app.pipeline.optimized_adapters import (
+    OptimizedQueryAdapter,
+    OptimizedResultAdapter,
+    OptimizedValidationAdapter,
+    OptimizedQueryResult,
+    OptimizedPipelineResult
+)
 
 class TestMetrics:
     def __init__(self):
@@ -29,6 +36,14 @@ class TestMetrics:
         self.adapter_failure = 0
         self.validation_success = 0
         self.validation_failure = 0
+        self.cache_hits = 0
+        self.cache_misses = 0
+        self.total_processing_time = 0.0
+        self.query_count = 0
+    
+    def _safe_percentage(self, part: int, total: int) -> float:
+        """Calculate percentage safely handling zero division"""
+        return (part / total * 100) if total > 0 else 0.0
     
     def record_adapter_success(self):
         self.adapter_success += 1
@@ -58,29 +73,49 @@ class TestMetrics:
         self.json_to_df_failure += 1
         self.failure_reasons[f"DataFrame: {reason}"] += 1
     
+    def record_cache_hit(self):
+        self.cache_hits += 1
+    
+    def record_cache_miss(self):
+        self.cache_misses += 1
+    
+    def record_processing_time(self, time: float):
+        self.total_processing_time += time
+        self.query_count += 1
+    
     def print_summary(self):
         total_api = self.query_to_json_success + self.query_to_json_failure
         total_df = self.json_to_df_success + self.json_to_df_failure
         total_adapter = self.adapter_success + self.adapter_failure
         total_validation = self.validation_success + self.validation_failure
+        total_cache = self.cache_hits + self.cache_misses
+        avg_processing_time = self.total_processing_time / self.query_count if self.query_count > 0 else 0
         
         print("\n=== Test Metrics Summary ===")
         
         print(f"\nAdapter Performance:")
-        print(f"  Success: {self.adapter_success}/{total_adapter} ({(self.adapter_success/total_adapter*100):.1f}%)")
-        print(f"  Failure: {self.adapter_failure}/{total_adapter} ({(self.adapter_failure/total_adapter*100):.1f}%)")
+        print(f"  Success: {self.adapter_success}/{total_adapter} ({self._safe_percentage(self.adapter_success, total_adapter):.1f}%)")
+        print(f"  Failure: {self.adapter_failure}/{total_adapter} ({self._safe_percentage(self.adapter_failure, total_adapter):.1f}%)")
         
         print(f"\nValidation Performance:")
-        print(f"  Success: {self.validation_success}/{total_validation} ({(self.validation_success/total_validation*100):.1f}%)")
-        print(f"  Failure: {self.validation_failure}/{total_validation} ({(self.validation_failure/total_validation*100):.1f}%)")
+        print(f"  Success: {self.validation_success}/{total_validation} ({self._safe_percentage(self.validation_success, total_validation):.1f}%)")
+        print(f"  Failure: {self.validation_failure}/{total_validation} ({self._safe_percentage(self.validation_failure, total_validation):.1f}%)")
+        
+        print(f"\nCache Performance:")
+        print(f"  Hits: {self.cache_hits}/{total_cache} ({self._safe_percentage(self.cache_hits, total_cache):.1f}%)")
+        print(f"  Misses: {self.cache_misses}/{total_cache} ({self._safe_percentage(self.cache_misses, total_cache):.1f}%)")
         
         print(f"\nQuery → JSON (API Fetch):")
-        print(f"  Success: {self.query_to_json_success}/{total_api} ({(self.query_to_json_success/total_api*100):.1f}%)")
-        print(f"  Failure: {self.query_to_json_failure}/{total_api} ({(self.query_to_json_failure/total_api*100):.1f}%)")
+        print(f"  Success: {self.query_to_json_success}/{total_api} ({self._safe_percentage(self.query_to_json_success, total_api):.1f}%)")
+        print(f"  Failure: {self.query_to_json_failure}/{total_api} ({self._safe_percentage(self.query_to_json_failure, total_api):.1f}%)")
         
         print(f"\nJSON → DataFrame:")
-        print(f"  Success: {self.json_to_df_success}/{total_df} ({(self.json_to_df_success/total_df*100):.1f}%)")
-        print(f"  Failure: {self.json_to_df_failure}/{total_df} ({(self.json_to_df_failure/total_df*100):.1f}%)")
+        print(f"  Success: {self.json_to_df_success}/{total_df} ({self._safe_percentage(self.json_to_df_success, total_df):.1f}%)")
+        print(f"  Failure: {self.json_to_df_failure}/{total_df} ({self._safe_percentage(self.json_to_df_failure, total_df):.1f}%)")
+        
+        print(f"\nPerformance Metrics:")
+        print(f"  Average Processing Time: {avg_processing_time:.2f} seconds")
+        print(f"  Total Queries Processed: {self.query_count}")
         
         if self.failure_reasons:
             print("\nFailure Reasons:")
@@ -90,9 +125,11 @@ class TestMetrics:
 metrics = TestMetrics()
 
 async def test_integrated_pipeline(query: str, client: httpx.AsyncClient) -> Union[pd.DataFrame, Dict[str, Any]]:
-    """Test the integrated pipeline with a query using adapters."""
+    """Test the integrated pipeline with optimized adapters."""
     print("\nTesting integrated pipeline...")
     print(f"Query: {query}")
+    
+    start_time = datetime.now().timestamp()
     
     try:
         # Step 1: Process query
@@ -100,13 +137,21 @@ async def test_integrated_pipeline(query: str, client: httpx.AsyncClient) -> Uni
         processor = QueryProcessor()
         query_result = await processor.process_query(query)
         
-        # Step 2: Adapt query result
+        # Step 2: Adapt query result with optimized adapter
         print("\nStep 2: Adapting query result...")
+        query_adapter = OptimizedQueryAdapter()
+        validation_adapter = OptimizedValidationAdapter()
+        
         try:
-            adapted_result = QueryResultAdapter.adapt(query_result)
-            if ValidationAdapter.validate_query_result(adapted_result):
+            adapted_result = await query_adapter.adapt(query_result)
+            validation_results = await validation_adapter.validate_batch([adapted_result])
+            if validation_results and validation_results[0]:
                 metrics.record_adapter_success()
                 metrics.record_validation_success()
+                if adapted_result.cache_hit:
+                    metrics.record_cache_hit()
+                else:
+                    metrics.record_cache_miss()
             else:
                 metrics.record_validation_failure("Invalid adapted result")
                 return pd.DataFrame()
@@ -117,19 +162,26 @@ async def test_integrated_pipeline(query: str, client: httpx.AsyncClient) -> Uni
         
         # Step 3: Convert to pipeline format
         print("\nStep 3: Converting to pipeline format...")
-        requirements = QueryResultAdapter.to_pipeline_format(adapted_result)
+        requirements = adapted_result.to_data_requirements()
         
         # Step 4: Process in pipeline
         print("\nStep 4: Processing in pipeline...")
         pipeline = DataPipeline()
         response = await pipeline.process(requirements)
         
-        # Step 5: Adapt pipeline result
+        # Step 5: Adapt pipeline result with optimized adapter
         print("\nStep 5: Adapting pipeline result...")
+        result_adapter = OptimizedResultAdapter()
+        
         try:
-            pipeline_result = ResultAdapter.adapt_pipeline_result(response)
-            if ValidationAdapter.validate_pipeline_result(pipeline_result):
+            pipeline_result = await result_adapter.adapt_pipeline_result(response, start_time)
+            validation_results = await validation_adapter.validate_batch([pipeline_result])
+            if validation_results and validation_results[0]:
                 metrics.record_validation_success()
+                if pipeline_result.cache_hit:
+                    metrics.record_cache_hit()
+                else:
+                    metrics.record_cache_miss()
             else:
                 metrics.record_validation_failure("Invalid pipeline result")
                 return pd.DataFrame()
@@ -137,6 +189,10 @@ async def test_integrated_pipeline(query: str, client: httpx.AsyncClient) -> Uni
             metrics.record_adapter_failure(str(e))
             print(f"Pipeline result adapter error: {str(e)}")
             return pd.DataFrame()
+        
+        # Record processing time
+        processing_time = datetime.now().timestamp() - start_time
+        metrics.record_processing_time(processing_time)
         
         # Return the processed data
         if pipeline_result.success and pipeline_result.data is not None:
@@ -157,7 +213,7 @@ async def test_integrated_pipeline(query: str, client: httpx.AsyncClient) -> Uni
         print(f"Traceback: {traceback.format_exc()}")
         return pd.DataFrame()
 
-async def run_all_tests(test_queries):
+async def run_all_tests(test_queries: List[str]):
     """Run all tests using a single event loop and shared client"""
     print("Starting test of all queries...")
     print(f"Total queries to test: {len(test_queries)}")
@@ -165,10 +221,13 @@ async def run_all_tests(test_queries):
     
     timeout = httpx.Timeout(30.0)
     async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-        for i, query in enumerate(test_queries, 1):
-            print(f"\nTesting query {i}/{len(test_queries)}")
-            print("-" * 40)
-            await test_integrated_pipeline(query, client)
+        # Process queries in parallel batches
+        batch_size = 4
+        for i in range(0, len(test_queries), batch_size):
+            batch = test_queries[i:i + batch_size]
+            print(f"\nProcessing batch {i//batch_size + 1}/{(len(test_queries) + batch_size - 1)//batch_size}")
+            tasks = [test_integrated_pipeline(query, client) for query in batch]
+            await asyncio.gather(*tasks)
             print("-" * 80)
     
     metrics.print_summary()
@@ -190,8 +249,16 @@ if __name__ == "__main__":
         
         # Circuit specific queries
         "How did George Russell perform at Silverstone in 2023?",
-        "Show me Carlos Sainz's results at Monza 2023"
+        "Show me Carlos Sainz's results at Monza 2023",
+        
+        # Complex comparison queries
+        "Compare Verstappen and Perez's performance in wet races during 2023",
+        "Show me the qualifying gap between Ferrari drivers in 2023",
+        
+        # Statistical analysis queries
+        "What's the correlation between starting position and race finish for McLaren in 2023?",
+        "Calculate the average pit stop time difference between Red Bull and Mercedes in 2023"
     ]
     
-    # Run all tests in a single event loop
+    # Run all tests in a single event loop with parallel processing
     asyncio.run(run_all_tests(test_queries)) 
