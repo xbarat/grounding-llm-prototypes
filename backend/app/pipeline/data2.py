@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import httpx
 import asyncio
 import traceback
@@ -15,6 +15,10 @@ from app.pipeline.mappings import (
     get_circuit_api_id,
     get_driver_api_id
 )
+from app.pipeline.logging_setup import setup_logging
+
+# Set up logging with error handling
+logger = setup_logging()
 
 @dataclass
 class DataResponse:
