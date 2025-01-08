@@ -6,6 +6,6 @@
   "outputDirectory": ".next",
   "regions": ["sfo1"],
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://orbit-vi-production.up.railway.app"
+    "NEXT_PUBLIC_API_URL": "https://orbit-vi-staging.up.railway.app"
   }
 } 
