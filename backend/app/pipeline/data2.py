@@ -4,6 +4,7 @@ import asyncio
 from typing import Dict, Any, List, Optional, Union, cast
 import pandas as pd
 from datetime import datetime
+from ..query.models import DataRequirements
 
 class DataRequirementsSplitter:
     """Splits complex requirements into atomic fetchable units"""
