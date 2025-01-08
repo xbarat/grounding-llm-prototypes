@@ -24,6 +24,7 @@ from app.pipeline.optimized_adapters import (
     OptimizedQueryResult,
     OptimizedPipelineResult
 )
+from tests.test_queries import TestQueries
 
 class TestMetrics:
     def __init__(self):
@@ -233,32 +234,23 @@ async def run_all_tests(test_queries: List[str]):
     metrics.print_summary()
 
 if __name__ == "__main__":
-    # Test queries focusing on different aspects
-    test_queries = [
-        # Basic performance queries
-        "How has Max Verstappen performed in the 2023 season?",
-        "What are Lewis Hamilton's stats for 2023?",
-        
-        # Qualifying specific queries
-        "What was Charles Leclerc's qualifying position in Monaco 2023?",
-        "Show me Oscar Piastri's qualifying results for 2023",
-        
-        # Race performance queries
-        "How many podiums did Fernando Alonso get in 2023?",
-        "What's Lando Norris's average finishing position in 2023?",
-        
-        # Circuit specific queries
-        "How did George Russell perform at Silverstone in 2023?",
-        "Show me Carlos Sainz's results at Monza 2023",
-        
-        # Complex comparison queries
-        "Compare Verstappen and Perez's performance in wet races during 2023",
-        "Show me the qualifying gap between Ferrari drivers in 2023",
-        
-        # Statistical analysis queries
-        "What's the correlation between starting position and race finish for McLaren in 2023?",
-        "Calculate the average pit stop time difference between Red Bull and Mercedes in 2023"
-    ]
+    # Get queries by index from different categories
+    test_queries = []
     
-    # Run all tests in a single event loop with parallel processing
+    # Basic Stats (first 3)
+    test_queries.extend(TestQueries.BASIC_STATS.queries[:3])
+    
+    # Driver Comparisons (first 2)
+    test_queries.extend(TestQueries.DRIVER_COMPARISONS.queries[:2])
+    
+    # Historical Trends (first 2)
+    test_queries.extend(TestQueries.HISTORICAL_TRENDS.queries[:2])
+    
+    print("\nRunning pipeline tests with selected queries...")
+    print(f"Number of test queries: {len(test_queries)}")
+    print("\nQueries to test:")
+    for i, query in enumerate(test_queries, 1):
+        print(f"{i}. {query}")
+    
+    # Run tests
     asyncio.run(run_all_tests(test_queries)) 
