@@ -237,79 +237,122 @@ class ParallelFetchManager:
             )
 
 class OptimizedQueryAdapter:
-    """Enhanced adapter with caching and parallel processing"""
+    """Adapter for optimizing query results with caching"""
     
     def __init__(self):
         self.cache_manager = CacheManager()
         self.parallel_processor = ParallelProcessor()
-        self.fetch_manager = ParallelFetchManager()
     
     async def adapt(self, result: Union[ProcessingResult, Dict[str, Any]]) -> OptimizedQueryResult:
-        """Adapt query result with caching and parallel fetch support"""
+        """Adapt a query result with caching and optimization"""
+        # First try to get from cache
+        if isinstance(result, ProcessingResult):
+            cache_key = CacheKey.from_query(result.requirements.endpoint, result.requirements.params)
+            cached = await self.cache_manager.get(cache_key)
+            if cached:
+                cached.cache_hit = True
+                return cached
+        
+        # If not in cache, adapt the result
         adapted = await self._adapt_initial(result)
         
-        # Check if we need parallel fetches
-        fetch_requests = self.fetch_manager.create_fetch_requests(adapted)
-        if len(fetch_requests) > 1:
-            # Multiple entities to fetch
-            fetch_results = await self.fetch_manager.fetch_all(fetch_requests)
-            adapted.metadata['parallel_fetches'] = {
-                'count': len(fetch_results),
-                'successful': sum(1 for r in fetch_results if r.success),
-                'entities': [{'type': r.entity_type, 'id': r.entity_id} for r in fetch_results]
-            }
+        # Store in cache if it's a ProcessingResult
+        if isinstance(result, ProcessingResult):
+            await self.cache_manager.set(adapted.cache_key, adapted)
         
         return adapted
     
     async def _adapt_initial(self, result: Union[ProcessingResult, Dict[str, Any]]) -> OptimizedQueryResult:
-        """Initial adaptation of the result"""
+        """Initial adaptation of a query result"""
         if isinstance(result, ProcessingResult):
-            adapted = OptimizedQueryResult.from_processing_result(result)
-            if cached := await self.cache_manager.get(adapted.cache_key):
-                cached.cache_hit = True
-                return cast(OptimizedQueryResult, cached)
-            await self.cache_manager.set(adapted.cache_key, adapted)
-            return adapted
-        elif isinstance(result, dict):
-            cache_key = CacheKey.from_query(
-                result.get("endpoint", ""),
-                result.get("params", {})
+            # Convert endpoint format if needed
+            endpoint = result.requirements.endpoint
+            if endpoint.startswith('/api/f1/'):
+                # Extract the base endpoint type
+                parts = endpoint[8:].strip('/').split('/')
+                if parts[0] == 'drivers':
+                    endpoint = 'DRIVERS.year'
+                elif parts[0] == 'qualifying':
+                    endpoint = 'QUALIFYING.race'
+                elif parts[0] in ['results', 'races']:
+                    endpoint = 'RESULTS.race'
+                elif parts[0] == 'pitstops':
+                    endpoint = 'RESULTS.race'
+                else:
+                    endpoint = f"{parts[0].upper()}.year"
+            
+            # Convert parameters
+            params = dict(result.requirements.params)
+            if 'season' in params:
+                params['year'] = params.pop('season')
+            
+            return OptimizedQueryResult.from_processing_result(
+                ProcessingResult(
+                    requirements=DataRequirements(endpoint=endpoint, params=params),
+                    processing_time=result.processing_time,
+                    source=result.source,
+                    confidence=result.confidence,
+                    trace=result.trace
+                )
             )
-            adapted = OptimizedQueryResult(
-                endpoint=result.get("endpoint", ""),
-                params=result.get("params", {}),
-                metadata=result.get("metadata", {}),
-                source_type="dict",
-                cache_key=cache_key,
+        else:
+            # Handle dictionary input
+            return OptimizedQueryResult(
+                endpoint=result.get('endpoint', 'DRIVERS.year'),
+                params=result.get('params', {}),
+                metadata=result.get('metadata', {}),
+                source_type='dict',
                 cache_hit=False
             )
-            await self.cache_manager.set(cache_key, adapted)
-            return adapted
-        else:
-            raise ValueError(f"Unsupported result type: {type(result)}")
     
     async def adapt_batch(self, results: List[Union[ProcessingResult, Dict[str, Any]]]) -> Sequence[OptimizedQueryResult]:
         """Adapt multiple results in parallel"""
         return await self.parallel_processor.process_batch(results, self._adapt_single)
     
     def _adapt_single(self, result: Union[ProcessingResult, Dict[str, Any]]) -> OptimizedQueryResult:
-        """Helper for parallel processing"""
+        """Synchronous adaptation of a single result"""
         if isinstance(result, ProcessingResult):
-            return OptimizedQueryResult.from_processing_result(result)
-        elif isinstance(result, dict):
+            # Convert endpoint format if needed
+            endpoint = result.requirements.endpoint
+            if endpoint.startswith('/api/f1/'):
+                # Extract the base endpoint type
+                parts = endpoint[8:].strip('/').split('/')
+                if parts[0] == 'drivers':
+                    endpoint = 'DRIVERS.year'
+                elif parts[0] == 'qualifying':
+                    endpoint = 'QUALIFYING.race'
+                elif parts[0] in ['results', 'races']:
+                    endpoint = 'RESULTS.race'
+                elif parts[0] == 'pitstops':
+                    endpoint = 'RESULTS.race'
+                else:
+                    endpoint = f"{parts[0].upper()}.year"
+            
+            # Convert parameters
+            params = dict(result.requirements.params)
+            if 'season' in params:
+                params['year'] = params.pop('season')
+            
             return OptimizedQueryResult(
-                endpoint=result.get("endpoint", ""),
-                params=result.get("params", {}),
-                metadata=result.get("metadata", {}),
-                source_type="dict",
-                cache_key=CacheKey.from_query(
-                    result.get("endpoint", ""),
-                    result.get("params", {})
-                ),
+                endpoint=endpoint,
+                params=params,
+                metadata={
+                    "confidence": result.confidence,
+                    "processing_time": result.processing_time,
+                    "source": result.source,
+                    "timestamp": datetime.now().isoformat()
+                },
+                source_type="processing_result",
                 cache_hit=False
             )
         else:
-            raise ValueError(f"Unsupported result type: {type(result)}")
+            return OptimizedQueryResult(
+                endpoint=result.get('endpoint', 'DRIVERS.year'),
+                params=result.get('params', {}),
+                metadata=result.get('metadata', {}),
+                source_type='dict',
+                cache_hit=False
+            )
 
 @dataclass
 class OptimizedPipelineResult:

@@ -31,25 +31,30 @@ class DataRequirementsSplitter:
         end_year = datetime.now().year
         
         # Parse various time formats
-        if isinstance(params.get('season'), list):
+        if isinstance(params.get('year'), list):
+            years = params['year']
+            if years:
+                start_year = min(int(y) for y in years)
+                end_year = max(int(y) for y in years)
+        elif isinstance(params.get('season'), list):  # Backward compatibility
             years = params['season']
             if years:
                 start_year = min(int(y) for y in years)
                 end_year = max(int(y) for y in years)
-        elif 'since' in str(params.get('season')):
-            start_year = int(str(params['season']).split('since')[-1].strip())
-        elif 'last decade' in str(params.get('season')):
+        elif 'since' in str(params.get('year', '')):
+            start_year = int(str(params['year']).split('since')[-1].strip())
+        elif 'last decade' in str(params.get('year', '')):
             start_year = end_year - 10
         
         if not start_year:
             start_year = end_year - 5  # Default to last 5 years
             
         # Create year-by-year requirements
-        base_params = {k: v for k, v in params.items() if k != 'season'}
+        base_params = {k: v for k, v in params.items() if k not in ['year', 'season']}
         for year in range(start_year, end_year + 1):
             split_reqs.append({
                 'endpoint': requirements.endpoint,
-                'params': {**base_params, 'season': str(year)},
+                'params': {**base_params, 'year': str(year)},
                 'metadata': {'year': year}
             })
         
@@ -63,10 +68,10 @@ class DataRequirementsSplitter:
         
         # Define metrics to fetch
         metrics = [
-            {'endpoint': '/api/f1/drivers', 'key': 'career_stats'},
-            {'endpoint': '/api/f1/results', 'key': 'race_results'},
-            {'endpoint': '/api/f1/qualifying', 'key': 'qualifying_results'},
-            {'endpoint': '/api/f1/standings', 'key': 'championship_standings'}
+            {'endpoint': 'DRIVERS.specific', 'key': 'career_stats'},
+            {'endpoint': 'RESULTS.race', 'key': 'race_results'},
+            {'endpoint': 'QUALIFYING.race', 'key': 'qualifying_results'},
+            {'endpoint': 'STANDINGS.driver_season', 'key': 'championship_standings'}
         ]
         
         # Create requirements for each metric
@@ -108,10 +113,12 @@ class DataPipeline:
     def _is_historical_query(self, requirements: Any) -> bool:
         """Check if query requires historical data processing"""
         params = requirements.params
-        if isinstance(params.get('season'), list) and len(params['season']) > 1:
+        if isinstance(params.get('year'), list) and len(params['year']) > 1:
             return True
-        season_str = str(params.get('season', ''))
-        return any(term in season_str.lower() for term in ['since', 'from', 'decade', 'between'])
+        if isinstance(params.get('season'), list) and len(params['season']) > 1:  # Backward compatibility
+            return True
+        year_str = str(params.get('year', ''))
+        return any(term in year_str.lower() for term in ['since', 'from', 'decade', 'between'])
     
     def _is_career_query(self, requirements: Any) -> bool:
         """Check if query requires career-wide data processing"""
@@ -326,13 +333,14 @@ class DataPipeline:
                 endpoint = requirements.endpoint
                 params = self._normalize_params(requirements.params)
                 
-                # Fetch and process data
-                data = await self._fetch_data(endpoint, params)
+                # Build endpoint and fetch data
+                full_endpoint = build_endpoint(endpoint, **params)
+                data = await fetch_f1_data(full_endpoint, params)
                 
-                if data and isinstance(data.get('results'), pd.DataFrame):
+                if data and data.get('success', False):
                     return {
                         'success': True,
-                        'data': data,
+                        'data': {'results': data['data']},
                         'error': None,
                         'metadata': {
                             'endpoint': endpoint,
@@ -348,7 +356,7 @@ class DataPipeline:
                 
                 return {
                     'success': False,
-                    'error': 'No data retrieved',
+                    'error': data.get('error', 'No data retrieved'),
                     'data': None,
                     'metadata': {
                         'endpoint': endpoint,
@@ -390,6 +398,10 @@ class DataPipeline:
         """Normalize parameters handling both single values and lists"""
         normalized = {}
         for key, value in params.items():
+            # Convert 'season' to 'year' if present
+            if key == 'season':
+                key = 'year'
+            
             if isinstance(value, str):
                 normalized[key] = value.replace('_', ' ')
             elif isinstance(value, list):
@@ -397,25 +409,3 @@ class DataPipeline:
             else:
                 normalized[key] = value
         return normalized
-    
-    async def _fetch_data(self, endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Fetch data from F1 API"""
-        try:
-            # Build the endpoint using f1_endpoints
-            full_endpoint = build_endpoint(endpoint, **params)
-            
-            # Fetch data using f1_api
-            response = await fetch_f1_data(full_endpoint, params)
-            
-            return response
-            
-        except Exception as e:
-            return {
-                'success': False,
-                'error': str(e),
-                'metadata': {
-                    'endpoint': endpoint,
-                    'params': params,
-                    'timestamp': datetime.now().isoformat()
-                }
-            }

@@ -235,29 +235,11 @@ async def run_all_tests(test_queries: List[str]):
 if __name__ == "__main__":
     # Test queries focusing on different aspects
     test_queries = [
-        # Basic performance queries
-        "How has Max Verstappen performed in the 2023 season?",
-        "What are Lewis Hamilton's stats for 2023?",
-        
-        # Qualifying specific queries
-        "What was Charles Leclerc's qualifying position in Monaco 2023?",
-        "Show me Oscar Piastri's qualifying results for 2023",
-        
-        # Race performance queries
-        "How many podiums did Fernando Alonso get in 2023?",
-        "What's Lando Norris's average finishing position in 2023?",
-        
-        # Circuit specific queries
-        "How did George Russell perform at Silverstone in 2023?",
-        "Show me Carlos Sainz's results at Monza 2023",
-        
-        # Complex comparison queries
-        "Compare Verstappen and Perez's performance in wet races during 2023",
-        "Show me the qualifying gap between Ferrari drivers in 2023",
-        
-        # Statistical analysis queries
-        "What's the correlation between starting position and race finish for McLaren in 2023?",
-        "Calculate the average pit stop time difference between Red Bull and Mercedes in 2023"
+        # Basic single driver query
+        "How has Ferrari's win rate changed since 2015?",
+        "What are Red Bull's podium finishes from 2010 to 2023?",
+        "Which driver performed better in the rain: Verstappen or Russell?",
+        "How does Verstappens pole position percentage compare to Hamiltons in 2023?",
     ]
     
     # Run all tests in a single event loop with parallel processing
