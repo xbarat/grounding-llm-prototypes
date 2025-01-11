@@ -1,8 +1,8 @@
 {
-  "projectId": "prj_5TcG2bmCBa9la3OFPTLgSw5Sj8Sg",
-  "orgId": "team_dwyU1a30aJ3jgIfXC9g1rzy7",
+  "projectId": "key",
+  "orgId": "team_id",
   "settings": {
-    "createdAt": 1736203454228,
+    "createdAt": 17467,
     "framework": "nextjs",
     "devCommand": "npm run dev",
     "installCommand": "npm install",
