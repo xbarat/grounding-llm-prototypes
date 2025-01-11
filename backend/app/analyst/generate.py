@@ -46,7 +46,14 @@ Focus on answering the specific follow-up question using the existing data.
 
         # Get response from model
         content = generator.generate(prompt)
-        return content
+        
+        # Extract code block before returning
+        code = extract_code_block(content)
+        if code is None:
+            logger.error("No code block found in response")
+            return ""
+            
+        return code
         
     except Exception as e:
         logger.exception("Error generating code")
@@ -64,7 +71,14 @@ def extract_code_block(response: str) -> Optional[str]:
     code = code.replace('\\n', '\n')  # Convert escaped newlines
     code = code.replace("\\'", "'")   # Convert escaped quotes
     code = code.strip()
-    return code
+    
+    # Remove any remaining markdown formatting
+    if code.startswith('```python'):
+        code = code[8:]
+    if code.endswith('```'):
+        code = code[:-3]
+    
+    return code.strip()
 
 def execute_code_safely(code: str, data: pd.DataFrame) -> Tuple[bool, Dict[str, Any], str]:
     """Execute generated code in a safe environment"""

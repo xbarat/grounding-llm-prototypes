@@ -238,8 +238,8 @@ if __name__ == "__main__":
         # Basic single driver query
         "How has Ferrari's win rate changed since 2015?",
         "What are Red Bull's podium finishes from 2010 to 2023?",
-        "Which driver performed better in the rain: Verstappen or Russell?",
-        "How does Verstappens pole position percentage compare to Hamiltons in 2023?",
+        "Which driver performed better in the rain: Max Verstappen or George Russell?",
+        "How does Max Verstappen's pole position percentage compare to Lewis Hamilton's in 2023?",
     ]
     
     # Run all tests in a single event loop with parallel processing
