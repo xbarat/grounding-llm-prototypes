@@ -6,6 +6,8 @@ import pandas as pd
 from datetime import datetime
 from dataclasses import dataclass
 from ..query.models import DataRequirements, ProcessingResult
+from ..api.f1_api import fetch_f1_data
+from ..api.f1_endpoints import build_endpoint
 
 @dataclass
 class DataResponse:
@@ -397,12 +399,23 @@ class DataPipeline:
         return normalized
     
     async def _fetch_data(self, endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Placeholder for actual API fetch implementation"""
-        # This is where you would implement the actual API call
-        # For now, return a mock DataFrame
-        df = pd.DataFrame({
-            'position': [1, 2, 3],
-            'points': [25, 18, 15],
-            'time': ['1:30.000', '1:30.500', '1:31.000']
-        })
-        return {'results': df}
+        """Fetch data from F1 API"""
+        try:
+            # Build the endpoint using f1_endpoints
+            full_endpoint = build_endpoint(endpoint, **params)
+            
+            # Fetch data using f1_api
+            response = await fetch_f1_data(full_endpoint, params)
+            
+            return response
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e),
+                'metadata': {
+                    'endpoint': endpoint,
+                    'params': params,
+                    'timestamp': datetime.now().isoformat()
+                }
+            }
