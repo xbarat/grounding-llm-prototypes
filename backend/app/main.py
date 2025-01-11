@@ -2,7 +2,7 @@
 import asyncio
 import logging
 from typing import Dict, Any, List, Optional, Set
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException, Depends, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
@@ -20,6 +20,8 @@ from app.database import engine, Base, get_db
 from app.auth.routes import router as auth_router
 from app.models.user import User, QueryHistory
 from app.auth.utils import get_current_user
+
+from .query.processor import QueryProcessor
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -81,46 +83,36 @@ def log_registered_routes():
 # Include authentication routes
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 
-@app.post("/analyze", response_model=QueryResponse)
+@app.post("/analyze")
 async def analyze_query(
-    request: QueryRequest,
-    current_user: User = Depends(get_current_user),
+    query: str = Body(..., embed=True), 
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-) -> QueryResponse:
-    """Process an F1 data analysis query"""
+) -> Dict[str, Any]:
+    """Analyze an F1 query and return results"""
     try:
-        # Get data requirements based on query
-        requirements = get_requirements_for_query(request.query)
+        # Process query and get analysis results
+        result = await analyze_f1_data(query)
         
-        # Process the query
-        result = await analyze_f1_data(request.query, requirements)
-        
-        # Save query to history
+        # Store query in history
         query_history = QueryHistory(
-            user_id=current_user.id,
-            query=request.query,
-            success=result["success"]
+            user_id=user.id,
+            query=query,
+            success=result.get("success", False),
+            error=result.get("error") if not result.get("success") else None
         )
         db.add(query_history)
-        db.commit()
+        await db.commit()
         
-        if result["success"]:
-            return QueryResponse(
-                status="success",
-                data=result
-            )
-        else:
-            return QueryResponse(
-                status="error",
-                detail=result["error"]
-            )
-            
+        return result
+        
     except Exception as e:
         logger.exception("Error processing query")
-        return QueryResponse(
-            status="error",
-            detail=str(e)
-        )
+        return {
+            "success": False,
+            "error": "Failed to process query",
+            "details": str(e)
+        }
 
 # Log all routes after mounting
 log_registered_routes()
@@ -133,24 +125,32 @@ async def analyze_f1_data(query: str, requirements: DataRequirements) -> Dict[st
         logger.info(f"Endpoint: {requirements.endpoint}")
         logger.info(f"Parameters: {requirements.params}")
         
-        # Step 1: Get data from pipeline
+        # Step 1: Process query to get requirements
+        processor = QueryProcessor()
+        processing_result = await processor.process_query(query)
+        requirements = processing_result.requirements
+        
+        logger.info(f"Query processed. Endpoint: {requirements.endpoint}")
+        logger.info(f"Parameters: {requirements.params}")
+        
+        # Step 2: Get data from pipeline
         pipeline = DataPipeline()
         logger.info("Fetching data from pipeline...")
         response = await pipeline.process(requirements)
         
-        if not response.success or not response.data:
-            logger.error(f"Pipeline error: {response.error}")
+        if not isinstance(response, dict) or not response.get("results"):
+            logger.error(f"Pipeline error: {response.get('error', 'Unknown error')}")
             return {
                 "success": False,
                 "error": "Failed to retrieve data",
-                "details": response.error
+                "details": response.get("error", "No data returned")
             }
             
-        logger.info(f"Data retrieved successfully. Shape: {pd.DataFrame(response.data['results']).shape}")
+        logger.info(f"Data retrieved successfully. Shape: {pd.DataFrame(response['results']).shape}")
         
-        # Step 2: Generate analysis code
+        # Step 3: Generate analysis code
         logger.info("Generating analysis code...")
-        code_response = generate_code(response.data["results"], query)
+        code_response = generate_code(response["results"], query)
         code = extract_code_block(code_response)
         
         if not code:
@@ -163,9 +163,9 @@ async def analyze_f1_data(query: str, requirements: DataRequirements) -> Dict[st
             
         logger.info("Code generated successfully")
         
-        # Step 3: Execute analysis
+        # Step 4: Execute analysis
         logger.info("Executing analysis code...")
-        success, result, modified_code = execute_code_safely(code, response.data["results"])
+        success, result, modified_code = execute_code_safely(code, response["results"])
         
         if not success:
             logger.error(f"Code execution failed: {result}")
@@ -179,7 +179,8 @@ async def analyze_f1_data(query: str, requirements: DataRequirements) -> Dict[st
         return {
             "success": True,
             "data": result,
-            "code": modified_code
+            "code": modified_code,
+            "query_trace": processing_result.trace if hasattr(processing_result, 'trace') else None
         }
         
     except Exception as e:
