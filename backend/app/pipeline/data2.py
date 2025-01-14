@@ -327,34 +327,76 @@ class DataPipeline:
         max_retries = 3
         retry_delay = 1.0  # seconds
         
+        # Validate input parameters
+        if not requirements or not hasattr(requirements, 'endpoint'):
+            return {
+                'success': False,
+                'error': 'Invalid requirements format',
+                'data': None,
+                'metadata': {'timestamp': datetime.now().isoformat()}
+            }
+
+        endpoint = requirements.endpoint
+        params = self._normalize_params(requirements.params)
+
+        # Validate endpoint and params
+        if not endpoint or not params:
+            return {
+                'success': False,
+                'error': 'Missing required parameters',
+                'data': None,
+                'metadata': {'timestamp': datetime.now().isoformat()}
+            }
+        
         for attempt in range(max_retries):
             try:
-                # Extract parameters
-                endpoint = requirements.endpoint
-                params = self._normalize_params(requirements.params)
-                
                 # Build endpoint and fetch data
                 full_endpoint = build_endpoint(endpoint, **params)
+                if not full_endpoint:
+                    return {
+                        'success': False,
+                        'error': 'Failed to build endpoint',
+                        'data': None,
+                        'metadata': {
+                            'endpoint': endpoint,
+                            'params': params,
+                            'timestamp': datetime.now().isoformat()
+                        }
+                    }
+
                 response = await fetch_f1_data(full_endpoint, params)
                 
-                # Check if response is valid and contains data
-                if response and isinstance(response, dict):
-                    success = response.get('success', False)
-                    data = response.get('data')
-                    error = response.get('error')
-                    
-                    if success and data is not None:
-                        return {
-                            'success': True,
-                            'data': {'results': data},
-                            'error': None,
-                            'metadata': {
-                                'endpoint': endpoint,
-                                'params': params,
-                                'timestamp': datetime.now().isoformat(),
-                                'attempt': attempt + 1
-                            }
+                # Handle dictionary response from fetch_f1_data
+                if not isinstance(response, dict):
+                    return {
+                        'success': False,
+                        'error': f'Invalid response type: {type(response)}',
+                        'data': None,
+                        'metadata': {
+                            'endpoint': full_endpoint,
+                            'params': params,
+                            'timestamp': datetime.now().isoformat(),
+                            'attempt': attempt + 1
                         }
+                    }
+
+                success = response.get('success', False)
+                data = response.get('data')
+                error = response.get('error')
+
+                if success and isinstance(data, pd.DataFrame):
+                    return {
+                        'success': True,
+                        'data': {'results': data},
+                        'error': None,
+                        'metadata': {
+                            'endpoint': full_endpoint,
+                            'params': params,
+                            'timestamp': datetime.now().isoformat(),
+                            'attempt': attempt + 1,
+                            'rows': len(data)
+                        }
+                    }
                 
                 if attempt < max_retries - 1:
                     await asyncio.sleep(retry_delay * (attempt + 1))
@@ -362,10 +404,10 @@ class DataPipeline:
                 
                 return {
                     'success': False,
-                    'error': response.get('error', 'No data retrieved') if isinstance(response, dict) else 'Invalid response format',
+                    'error': error or 'No data retrieved',
                     'data': None,
                     'metadata': {
-                        'endpoint': endpoint,
+                        'endpoint': full_endpoint,
                         'params': params,
                         'timestamp': datetime.now().isoformat(),
                         'attempt': attempt + 1
@@ -379,10 +421,10 @@ class DataPipeline:
                 
                 return {
                     'success': False,
-                    'error': str(e),
+                    'error': f'Processing error: {str(e)}',
                     'data': None,
                     'metadata': {
-                        'endpoint': requirements.endpoint,
+                        'endpoint': endpoint,
                         'timestamp': datetime.now().isoformat(),
                         'attempt': attempt + 1,
                         'error_type': type(e).__name__
@@ -394,7 +436,7 @@ class DataPipeline:
             'error': 'Max retries exceeded',
             'data': None,
             'metadata': {
-                'endpoint': requirements.endpoint,
+                'endpoint': endpoint,
                 'timestamp': datetime.now().isoformat(),
                 'max_retries': max_retries
             }
@@ -402,16 +444,42 @@ class DataPipeline:
     
     def _normalize_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize parameters handling both single values and lists"""
+        if not params or not isinstance(params, dict):
+            return {}
+            
         normalized = {}
         for key, value in params.items():
+            # Skip empty values
+            if value is None or value == "":
+                continue
+                
             # Convert 'season' to 'year' if present
             if key == 'season':
                 key = 'year'
             
-            if isinstance(value, str):
-                normalized[key] = value.replace('_', ' ')
-            elif isinstance(value, list):
-                normalized[key] = [v.replace('_', ' ') if isinstance(v, str) else v for v in value]
-            else:
-                normalized[key] = value
+            try:
+                if isinstance(value, str):
+                    # Handle driver names specially
+                    if key == 'driver':
+                        normalized[key] = value.lower().replace(' ', '_')
+                    else:
+                        normalized[key] = value.strip()
+                elif isinstance(value, list):
+                    # Handle list of values
+                    normalized_list = []
+                    for v in value:
+                        if isinstance(v, str):
+                            if key == 'driver':
+                                normalized_list.append(v.lower().replace(' ', '_'))
+                            else:
+                                normalized_list.append(v.strip())
+                        else:
+                            normalized_list.append(v)
+                    normalized[key] = normalized_list
+                else:
+                    normalized[key] = value
+            except Exception as e:
+                print(f"Error normalizing parameter {key}: {str(e)}")
+                continue
+                
         return normalized

@@ -8,6 +8,7 @@ from openai import AsyncOpenAI
 from dotenv import load_dotenv
 from .models import DataRequirements, ProcessingResult
 from .q2_assistants import Q2Processor, Q2Result
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
@@ -22,6 +23,7 @@ class QueryProcessor:
         self.client = AsyncOpenAI(api_key=api_key)
         # Q2: Initialize Q2 processor
         self.q2_processor = Q2Processor(self.client)
+        self.current_year = str(datetime.now().year)
         
     async def process_query(self, query: str, use_q2: bool = True) -> ProcessingResult:
         """
@@ -122,10 +124,15 @@ Query: """ + query
             if "params" not in parsed:
                 raise ValueError("Missing 'params' in response")
             
+            # Ensure we have a year parameter
+            params = parsed["params"]
+            if "season" not in params and "year" not in params:
+                params["season"] = self.current_year
+            
             # Create DataRequirements object
             requirements = DataRequirements(
                 endpoint=parsed["endpoint"],
-                params=parsed["params"]
+                params=params
             )
             
             print("\nProcessed requirements:", requirements)
@@ -137,7 +144,10 @@ Query: """ + query
             default_driver = query.lower().split()[0] if query else "unknown"
             return DataRequirements(
                 endpoint="/api/f1/drivers",
-                params={"driver": default_driver}
+                params={
+                    "driver": default_driver,
+                    "season": self.current_year
+                }
             )
 
 async def main():
