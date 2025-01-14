@@ -335,20 +335,26 @@ class DataPipeline:
                 
                 # Build endpoint and fetch data
                 full_endpoint = build_endpoint(endpoint, **params)
-                data = await fetch_f1_data(full_endpoint, params)
+                response = await fetch_f1_data(full_endpoint, params)
                 
-                if data and data.get('success', False):
-                    return {
-                        'success': True,
-                        'data': {'results': data['data']},
-                        'error': None,
-                        'metadata': {
-                            'endpoint': endpoint,
-                            'params': params,
-                            'timestamp': datetime.now().isoformat(),
-                            'attempt': attempt + 1
+                # Check if response is valid and contains data
+                if response and isinstance(response, dict):
+                    success = response.get('success', False)
+                    data = response.get('data')
+                    error = response.get('error')
+                    
+                    if success and data is not None:
+                        return {
+                            'success': True,
+                            'data': {'results': data},
+                            'error': None,
+                            'metadata': {
+                                'endpoint': endpoint,
+                                'params': params,
+                                'timestamp': datetime.now().isoformat(),
+                                'attempt': attempt + 1
+                            }
                         }
-                    }
                 
                 if attempt < max_retries - 1:
                     await asyncio.sleep(retry_delay * (attempt + 1))
@@ -356,7 +362,7 @@ class DataPipeline:
                 
                 return {
                     'success': False,
-                    'error': data.get('error', 'No data retrieved'),
+                    'error': response.get('error', 'No data retrieved') if isinstance(response, dict) else 'Invalid response format',
                     'data': None,
                     'metadata': {
                         'endpoint': endpoint,
