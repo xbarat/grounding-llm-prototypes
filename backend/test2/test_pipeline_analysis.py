@@ -7,6 +7,7 @@ import pandas as pd
 import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+import ipdb
 
 # Add the backend directory to Python path
 backend_dir = str(Path(__file__).parent.parent)
@@ -89,12 +90,13 @@ async def test_pipeline_analysis(query: str) -> Optional[Dict[str, Any]]:
     start_time = datetime.now().timestamp()
     
     try:
+        import ipdb; ipdb.set_trace()  # Add this line before Step 1
         # Step 1: Process query through pipeline
         logger.info("\nStep 1: Processing query through pipeline...")
         processor = QueryProcessor()
         query_result = await processor.process_query(query)
         
-        # Step 2: Adapt query result
+        # Step 2: Bring Query Adapter to Process Query Result
         logger.info("\nStep 2: Adapting query result...")
         query_adapter = OptimizedQueryAdapter()
         adapted_result = await query_adapter.adapt(query_result)

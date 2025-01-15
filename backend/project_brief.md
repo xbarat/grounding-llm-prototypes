@@ -129,3 +129,76 @@ Query → Process → Adapt → Pipeline → Transform → Generate Code → Exe
 - Main implementation needs significant updates
 - Focus should be on data structure standardization first
 - Cache system needs complete overhaul 
+
+## Next Priority: Test → Main Migration
+
+### Migration Plan
+1. **Component Migration Order**
+   ```
+   OptimizedQueryAdapter → OptimizedResultAdapter → DataPipeline → Code Generation
+   ```
+
+2. **Key Components to Port**
+   - `OptimizedQueryAdapter`: Handles multi-year queries and proper data formatting
+   - `OptimizedResultAdapter`: Provides clean DataFrame structure
+   - `DataPipeline`: Includes robust error handling and metadata
+   - Code generation with pipeline DataFrame usage
+
+3. **Expected Benefits**
+   - Immediate fix for main.py failures
+   - Consistent data handling across implementations
+   - Reuse of proven components
+   - Better error handling
+
+4. **Migration Steps**
+   ```python
+   # Current main.py
+   async def analyze_f1_data(query: str):
+       query_result = await processor.process_query(query)
+       requirements = query_result.requirements  # Direct extraction
+       # Uses requirements directly for pipeline processing
+
+   # To be updated to:
+   async def analyze_f1_data(query: str):
+       query_result = await processor.process_query(query)
+       # Add adaptation layer
+       query_adapter = OptimizedQueryAdapter()
+       adapted_result = await query_adapter.adapt(query_result)
+       
+       # Use optimized pipeline
+       pipeline = DataPipeline()
+       requirements = adapted_result.to_data_requirements()
+       pipeline_response = await pipeline.process(requirements)
+       
+       # Add result adaptation
+       result_adapter = OptimizedResultAdapter()
+       pipeline_result = await result_adapter.adapt_pipeline_result(pipeline_response, start_time)
+       
+       # Generate and execute code using pipeline DataFrame
+       code = generate_code(pipeline_result.data['results'], query)
+       success, result, executed_code = execute_code_safely(code, pipeline_result.data['results'])
+   ```
+
+5. **Validation Strategy**
+   - Port components one at a time
+   - Run parallel tests comparing outputs
+   - Verify error handling
+   - Check performance metrics
+
+6. **Risk Mitigation**
+   - Keep old implementation as fallback
+   - Add feature flags for gradual rollout
+   - Monitor performance metrics
+   - Add detailed logging
+
+### Timeline
+1. **Week 1**: Port adaptation layers
+2. **Week 2**: Update pipeline integration
+3. **Week 3**: Migrate code generation
+4. **Week 4**: Testing and validation
+
+### Success Criteria
+- Main.py handles all test cases successfully
+- No regression in performance
+- Clean error handling
+- Consistent data structures 
