@@ -51,7 +51,7 @@ async def analyze_f1_data(request: QueryRequest) -> Dict[str, Any]:
     """
     try:
         # Record start time for performance tracking
-        start_time = datetime.now()
+        start_time = datetime.now().timestamp()
         
         # Step 1: Process query
         processor = QueryProcessor()
@@ -96,7 +96,7 @@ async def analyze_f1_data(request: QueryRequest) -> Dict[str, Any]:
             "data": result,
             "executed_code": executed_code,
             "query_trace": query_result.trace,
-            "processing_time": (datetime.now() - start_time).total_seconds(),
+            "processing_time": datetime.now().timestamp() - start_time,
             "metadata": pipeline_result.metadata
         }
         
@@ -106,7 +106,7 @@ async def analyze_f1_data(request: QueryRequest) -> Dict[str, Any]:
             "success": False,
             "error": "Analysis failed",
             "details": e.detail,
-            "processing_time": (datetime.now() - start_time).total_seconds()
+            "processing_time": datetime.now().timestamp() - start_time
         }
     except Exception as e:
         # Handle other exceptions
@@ -114,7 +114,7 @@ async def analyze_f1_data(request: QueryRequest) -> Dict[str, Any]:
             "success": False,
             "error": "Analysis failed",
             "details": str(e),
-            "processing_time": (datetime.now() - start_time).total_seconds()
+            "processing_time": datetime.now().timestamp() - start_time
         }
 
 if __name__ == "__main__":
