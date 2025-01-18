@@ -1,0 +1,10 @@
+# Additional test dependencies
+psutil==6.1.1  # For performance monitoring
+pyarrow==19.0.0  # Updated version for Python 3.13 compatibility
+
+# Note: Other dependencies are already in backend/requirements.txt:
+# - pytest
+# - httpx
+# - pandas
+# - matplotlib
+# - numpy

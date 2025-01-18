@@ -1,0 +1,21 @@
+1.	How has Max Verstappen’s rank changed across the last 10 seasons?
+	2.	How does Lewis Hamilton compare to Charles Leclerc in terms of wins, podiums, and points over the last 5 seasons?
+	3.	What is Fernando Alonso’s performance (wins, fastest laps, podiums) on Circuit Silverstone over the past seasons?
+	4.	What were Sergio Pérez’s key stats (wins, poles, fastest laps) for each season?
+	5.	What is Carlos Sainz Jr.’s average qualifying position across all races in a given season?
+	6.	How does Lando Norris perform in wet vs. dry conditions (wins, DNFs, lap times)?
+	7.	How does George Russell compare to his teammate in points, podiums, and wins for the last 3 seasons?
+	8.	How has Oscar Piastri performed in races with safety car interventions (positions gained/lost)?
+	9.	What is Valtteri Bottas’s average lap time consistency across all races in a season?
+	10.	How often does Charles Leclerc finish in the top 5 after starting outside the top 10?
+	11.	How has Lewis Hamilton’s rank changed across the last 10 seasons?
+	12.	How does Max Verstappen compare to Fernando Alonso in terms of wins, podiums, and points over the last 5 seasons?
+	13.	What is Lando Norris’s performance (wins, fastest laps, podiums) on Circuit Monaco over the past seasons?
+	14.	What were George Russell’s key stats (wins, poles, fastest laps) for each season?
+	15.	What is Oscar Piastri’s average qualifying position across all races in a given season?
+	16.	How does Valtteri Bottas perform in wet vs. dry conditions (wins, DNFs, lap times)?
+	17.	How does Sergio Pérez compare to his teammate in points, podiums, and wins for the last 3 seasons?
+	18.	How has Carlos Sainz Jr. performed in races with safety car interventions (positions gained/lost)?
+	19.	What is Charles Leclerc’s average lap time consistency across all races in a season?
+	20.	How often does Fernando Alonso finish in the top 5 after starting outside the top 10?
+    

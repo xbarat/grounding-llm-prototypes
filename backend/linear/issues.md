@@ -1,5 +1,17 @@
 # Pipeline Issues
 
+
+## 495: Dataframe has a nested constructor column
+The constructor column is a nested list of dictionaries, which is not the expected format. This is causing issues while generating code, as the AI models prompt is not able to handle this format for advanced queries where conversion and analysis is required.
+
+### Details:
+1. **Current Behavior**:
+   
+2. **Root Causes**:
+   
+3. **Impact**:
+   
+
 ## #471: Parallel Entity Detection Fails for Implicit Multi-Entity Queries
 Pipeline fails to detect multiple entities when they're implied rather than explicitly listed in query params. Affects rain/weather and trend analysis.
 

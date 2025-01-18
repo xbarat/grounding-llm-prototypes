@@ -1,0 +1,23 @@
+Historical Queries:
+- How has Mercedes' win rate changed since 2010?
+- Which driver has won the most races in wet conditions since 2005?
+- What are Red Bull’s podium finishes by year from 2015 to 2023?
+- How many races has Hamilton won each season since 2014?
+- Which team dominated constructors' championships from 2000 to 2010?
+- Show the fastest lap times in Monaco for each season since 2010.
+- How many DNFs has Ferrari had in the last 5 seasons?
+- What is the historical trend for fastest laps set by Verstappen since his debut?
+- How many pole positions did Red Bull achieve during the Vettel era (2010-2013)?
+- Which driver has the most points without winning a championship since 1990?
+
+Ambiguous Queries:
+- Which driver performs best in the rain?
+- Who is the fastest driver in Monaco?
+- What team has improved the most over the last 5 seasons?
+- Which constructor is the best on street circuits?
+- What is Hamilton’s success rate at circuits where Verstappen also won?
+- Which races had the closest finishes in F1 history?
+- How does Ferrari perform compared to Red Bull in wet conditions?
+- What is the average finishing position for Alonso in 2023?
+- Which races had safety cars deployed in 2022?
+- Who are the best drivers on tire conservation strategies?
