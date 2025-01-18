@@ -1,8 +1,10 @@
 """Main application integrating F1 data pipeline with analysis"""
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 import logging
 import pandas as pd
+import json
+import ast
 
 # FastAPI and Pydantic
 from fastapi import FastAPI, HTTPException
@@ -38,6 +40,92 @@ app.add_middleware(
 # Request model
 class QueryRequest(BaseModel):
     query: str
+
+def validate_constructor_data(data: Any) -> List[Dict]:
+    """Validate and normalize constructor data to ensure consistent format."""
+    if isinstance(data, str):
+        try:
+            # Try to parse string as JSON first
+            data = json.loads(data)
+        except json.JSONDecodeError:
+            try:
+                # If JSON fails, try ast.literal_eval
+                data = ast.literal_eval(data)
+            except (ValueError, SyntaxError):
+                logger.error(f"Failed to parse constructor data: {data}")
+                return []
+    
+    if not isinstance(data, list):
+        logger.error(f"Constructor data is not a list: {type(data)}")
+        return []
+        
+    return data
+
+def normalize_constructor_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize constructor data in DataFrame."""
+    try:
+        if 'ConstructorTable' not in df.columns:
+            logger.debug("No ConstructorTable column found")
+            return df
+            
+        logger.debug(f"ConstructorTable data types: {df['ConstructorTable'].apply(type).value_counts()}")
+        
+        # Validate and normalize ConstructorTable data
+        df['ConstructorTable'] = df['ConstructorTable'].apply(validate_constructor_data)
+        
+        # Extract Ferrari's data
+        df['constructor_data'] = df['ConstructorTable'].apply(
+            lambda x: next((item for item in x if isinstance(item, dict) and 
+                          item.get('constructorId') == 'ferrari'), {})
+        )
+        
+        # Log the extracted Ferrari data
+        logger.debug(f"Extracted Ferrari data sample: {df['constructor_data'].iloc[0] if not df.empty else None}")
+        
+        # Drop the original ConstructorTable column
+        df = df.drop('ConstructorTable', axis=1)
+        
+        # Expand constructor data if not empty
+        if not df.empty and df['constructor_data'].iloc[0]:
+            try:
+                constructor_df = pd.json_normalize(df['constructor_data'].tolist())
+                logger.debug(f"Normalized constructor columns: {constructor_df.columns}")
+                df = pd.concat([df.drop('constructor_data', axis=1), constructor_df], axis=1)
+            except Exception as e:
+                logger.error(f"Failed to normalize constructor data: {str(e)}")
+                # Keep original data if normalization fails
+                df = df.drop('constructor_data', axis=1)
+        else:
+            df = df.drop('constructor_data', axis=1)
+            
+        return df
+    except Exception as e:
+        logger.error(f"Error in normalize_constructor_data: {str(e)}")
+        return df
+
+def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Clean DataFrame by removing duplicates and invalid data."""
+    logger.debug("Starting DataFrame cleaning")
+    logger.debug(f"Initial shape: {df.shape}")
+    
+    # Remove rows where ConstructorTable is just a year number
+    if 'ConstructorTable' in df.columns:
+        df = df[df['ConstructorTable'].apply(lambda x: not (isinstance(x, (int, float)) or (isinstance(x, str) and x.isdigit())))]
+        logger.debug(f"Shape after removing numeric ConstructorTable: {df.shape}")
+    
+    # Drop duplicates based on specific columns, excluding unhashable types
+    safe_columns = [col for col in df.columns if col != 'ConstructorTable']
+    if safe_columns:
+        df = df.drop_duplicates(subset=safe_columns)
+        logger.debug(f"Shape after dropping duplicates: {df.shape}")
+    
+    # If we have both 'year' and 'season', ensure they match and keep one
+    if 'year' in df.columns and 'season' in df.columns:
+        df = df[df['year'] == df['season']]
+        df = df.drop('season', axis=1)
+        logger.debug(f"Shape after year/season reconciliation: {df.shape}")
+    
+    return df
 
 @app.post("/api/v1/analyze")
 async def analyze_f1_data(request: QueryRequest) -> Dict[str, Any]:
@@ -84,44 +172,39 @@ async def analyze_f1_data(request: QueryRequest) -> Dict[str, Any]:
             
         # Step 5: Generate and execute analysis code
         results = pipeline_result.data.get('results', {})
-        logger.debug(f"Raw results: {results}")
+        logger.debug(f"Raw results type: {type(results)}")
+        logger.debug(f"Raw results structure: {json.dumps(results, default=str)[:500]}...")
         
         try:
-            # Create DataFrame and normalize the ConstructorTable column
-            if isinstance(results, dict):
+            # Handle different result types
+            if isinstance(results, pd.DataFrame):
+                logger.debug("Results is already a DataFrame")
+                df = results
+            elif isinstance(results, dict):
                 df = pd.DataFrame([results])
             elif isinstance(results, list):
                 df = pd.DataFrame(results)
             else:
-                df = pd.DataFrame(results)
-                
-            # Normalize the ConstructorTable column if it exists and contains nested data
-            if 'ConstructorTable' in df.columns:
-                # Extract Ferrari's data from each year
-                df['constructor_data'] = df['ConstructorTable'].apply(
-                    lambda x: next((item for item in x if item['constructorId'] == 'ferrari'), {}) 
-                    if isinstance(x, list) else {}
-                )
-                
-                # Drop the original ConstructorTable column
-                df = df.drop('ConstructorTable', axis=1)
-                
-                # If we have constructor data, expand it into separate columns
-                if not df['constructor_data'].empty:
-                    constructor_df = pd.json_normalize(df['constructor_data'].iloc[0])
-                    df = pd.concat([df.drop('constructor_data', axis=1), constructor_df], axis=1)
+                logger.error(f"Unexpected results type: {type(results)}")
+                raise ValueError(f"Cannot process results of type: {type(results)}")
             
-            logger.debug(f"DataFrame creation successful")
-            logger.debug(f"DataFrame shape: {df.shape}")
-            logger.debug(f"DataFrame columns: {list(df.columns)}")
-            logger.debug(f"First few rows: {df.head()}")
+            # Clean the DataFrame before normalization
+            df = clean_dataframe(df)
+            logger.debug(f"DataFrame shape after cleaning: {df.shape}")
+            logger.debug(f"Columns after cleaning: {list(df.columns)}")
+            
+            # Normalize the constructor data
+            df = normalize_constructor_data(df)
+            logger.debug(f"Final DataFrame shape: {df.shape}")
+            logger.debug(f"Final columns: {list(df.columns)}")
+            logger.debug(f"Data types: {df.dtypes}")
             
             if df.empty:
-                raise HTTPException(status_code=400, detail="DataFrame is empty after creation")
+                raise HTTPException(status_code=400, detail="No data available after processing")
                 
         except Exception as e:
-            logger.error(f"DataFrame creation error: {str(e)}")
-            raise HTTPException(status_code=400, detail=f"Failed to create DataFrame: {str(e)}")
+            logger.error(f"DataFrame processing error: {str(e)}", exc_info=True)
+            raise HTTPException(status_code=400, detail=f"Failed to process data: {str(e)}")
         
         # Generate and execute code with additional logging
         logger.debug("Generating analysis code")
