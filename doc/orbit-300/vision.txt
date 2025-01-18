@@ -1,0 +1,9 @@
+# Vision
+
+## Tactical Market
+
+A system that can answer any question about F1 data.
+
+## Long Term
+
+Deep dive into databases across the web ecosystem.
