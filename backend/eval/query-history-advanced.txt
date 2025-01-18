@@ -1,0 +1,15 @@
+"""
+# Advanced Historical Queries
+# These queries focus on complex historical analysis and trends
+
+1. How has Mercedes' win rate changed since 2010?
+2. Which driver has won the most races in wet conditions since 2005?
+3. What are Red Bull's podium finishes by year from 2015 to 2023?
+4. How many races has Hamilton won each season since 2014?
+5. Which team dominated constructors' championships from 2000 to 2010?
+6. Show the fastest lap times in Monaco for each season since 2010.
+7. How many DNFs has Ferrari had in the last 5 seasons?
+8. What is the historical trend for fastest laps set by Verstappen since his debut?
+9. How many pole positions did Red Bull achieve during the Vettel era (2010-2013)?
+10. Which driver has the most points without winning a championship since 1990?
+""" 

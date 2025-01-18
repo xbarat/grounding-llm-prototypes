@@ -1,0 +1,15 @@
+"""
+# Basic Driver Focus Queries
+# These queries focus on individual driver performance metrics
+
+1. How has Max Verstappen's rank changed across the last 10 seasons?
+2. What were Sergio Pérez's key stats (wins, poles, fastest laps) for each season?
+3. What is Carlos Sainz Jr.'s average qualifying position across all races in a given season?
+4. How has Lewis Hamilton's rank changed across the last 10 seasons?
+5. What were George Russell's key stats (wins, poles, fastest laps) for each season?
+6. What is Oscar Piastri's average qualifying position across all races in a given season?
+7. What is Charles Leclerc's average lap time consistency across all races in a season?
+8. How often does Fernando Alonso finish in the top 5 after starting outside the top 10?
+9. What is Valtteri Bottas's average lap time consistency across all races in a season?
+10. How often does Charles Leclerc finish in the top 5 after starting outside the top 10?
+""" 

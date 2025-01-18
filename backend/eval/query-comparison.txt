@@ -1,0 +1,13 @@
+"""
+# Driver Comparison Queries
+# These queries focus on comparing performance between drivers
+
+- Compare Verstappen and Hamilton's wins in 2023.
+- Who has more podium finishes: Leclerc or Norris in 2023?
+- Compare lap times between Verstappen and Alonso in Monaco 2023.
+- Which driver performed better in the rain: Verstappen or Russell?
+- How does Verstappen's pole position percentage compare to Hamilton's in 2023?
+- Compare Verstappen and Hamilton in terms of race wins and fastest laps.
+- Who had the better average qualifying position: Norris or Sainz?
+- Compare Leclerc and Perez's DNFs in 2023.
+""" 

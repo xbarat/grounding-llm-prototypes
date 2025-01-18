@@ -1,0 +1,13 @@
+"""
+# Historical Trend Queries
+# These queries focus on long-term performance trends
+
+- How has Ferrari's win rate changed since 2015?
+- What are Red Bull's podium finishes from 2010 to 2023?
+- Which driver has the most wins in wet races since 2000?
+- How many wins does Hamilton have each season since 2014?
+- Which team dominated constructors' championships from 2010 to 2020?
+- Show Mercedes' win percentage over the last decade.
+- How have the fastest lap times changed in Monaco since 2010?
+- What is the historical win trend of Verstappen?
+""" 

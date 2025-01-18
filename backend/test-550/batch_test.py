@@ -89,22 +89,40 @@ class BatchTestRunner:
         self.query_sets: Dict[str, List[str]] = {}
         self.active_tests: Set[str] = set()
         self.results: List[TestResult] = []
+        self.query_set_files = [
+            "query-stats.txt",
+            "query-comparison.txt",
+            "query-history.txt",
+            "query-focus-basic.txt",
+            "query-focus-advanced.txt",
+            "query-history-advanced.txt",
+            "query-ambiguous.txt",
+            "query-edge.txt"
+        ]
 
     async def load_query_sets(self):
         """Load available query sets from the eval directory."""
         eval_dir = Path("backend/eval")
-        for file in eval_dir.glob("query_test_*.txt"):
+        for file_name in self.query_set_files:
+            file_path = eval_dir / file_name
+            if not file_path.exists():
+                logger.warning(f"Query set file not found: {file_name}")
+                continue
+                
             queries = []
-            with open(file) as f:
-                current_category = None
+            with open(file_path) as f:
                 for line in f:
                     line = line.strip()
-                    if line.startswith("#"):
-                        current_category = line[1:].strip()
-                    elif line and not line.startswith("//"):
+                    # Skip comments, headers and empty lines
+                    if line and not line.startswith('#') and not line.startswith('"') and not line.startswith('-') and not line.startswith('=='):
+                        # Remove numbering if present
+                        if line[0].isdigit() and '. ' in line:
+                            line = line.split('. ', 1)[1]
                         queries.append(line)
-            self.query_sets[file.stem] = queries
-            logger.info(f"Loaded {len(queries)} queries from {file.name}")
+            
+            set_name = file_name.replace('.txt', '')
+            self.query_sets[set_name] = queries
+            logger.info(f"Loaded {len(queries)} queries from {file_name}")
 
     async def process_query(self, query: str) -> TestResult:
         """Process a single query through all testing stages."""
@@ -180,18 +198,56 @@ async def main():
     runner = BatchTestRunner()
     await runner.load_query_sets()
     
-    # List available query sets
+    # List available query sets with numbers
     print("\nAvailable Query Sets:")
-    for name in runner.query_sets:
-        print(f"- {name} ({len(runner.query_sets[name])} queries)")
+    query_set_list = list(runner.query_sets.keys())
+    for idx, name in enumerate(query_set_list, 1):
+        query_count = len(runner.query_sets[name])
+        print(f"{idx}. {name} ({query_count} queries)")
+        print(f"   Description: {get_query_set_description(name)}")
     
-    # Allow user to select query set
-    query_set = input("\nEnter query set name: ").strip()
-    concurrency = int(input("Enter concurrency level (default: 3): ") or "3")
+    # Get user input using numbers
+    while True:
+        try:
+            set_num = int(input("\nEnter query set number (1-8): "))
+            if 1 <= set_num <= len(query_set_list):
+                query_set = query_set_list[set_num - 1]
+                break
+            print(f"Please enter a number between 1 and {len(query_set_list)}")
+        except ValueError:
+            print("Please enter a valid number")
+    
+    # Get concurrency level
+    while True:
+        try:
+            concurrency = int(input("Enter concurrency level (1-10, default: 3): ") or "3")
+            if 1 <= concurrency <= 10:
+                break
+            print("Please enter a number between 1 and 10")
+        except ValueError:
+            print("Please enter a valid number")
+    
+    print(f"\nSelected: {query_set}")
+    print(f"Description: {get_query_set_description(query_set)}")
+    print(f"Concurrency: {concurrency}")
     
     # Run tests
     results = await runner.run_batch(query_set, concurrency)
     runner.print_summary()
+
+def get_query_set_description(query_set: str) -> str:
+    """Return a description for each query set."""
+    descriptions = {
+        "query-stats": "Basic statistical queries about current season performance",
+        "query-comparison": "Direct comparisons between drivers' performance",
+        "query-history": "Basic historical trend analysis",
+        "query-focus-basic": "Individual driver performance metrics",
+        "query-focus-advanced": "Complex driver performance analysis",
+        "query-history-advanced": "Advanced historical analysis and trends",
+        "query-ambiguous": "Queries requiring additional context",
+        "query-edge": "Complex edge cases and scenarios"
+    }
+    return descriptions.get(query_set, "No description available")
 
 if __name__ == "__main__":
     asyncio.run(main()) 

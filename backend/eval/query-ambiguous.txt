@@ -1,0 +1,15 @@
+"""
+# Ambiguous Queries
+# These queries require additional context or clarification
+
+1. Which driver performs best in the rain?
+2. Who is the fastest driver in Monaco?
+3. What team has improved the most over the last 5 seasons?
+4. Which constructor is the best on street circuits?
+5. What is Hamilton's success rate at circuits where Verstappen also won?
+6. Which races had the closest finishes in F1 history?
+7. How does Ferrari perform compared to Red Bull in wet conditions?
+8. What is the average finishing position for Alonso in 2023?
+9. Which races had safety cars deployed in 2022?
+10. Who are the best drivers on tire conservation strategies?
+""" 

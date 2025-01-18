@@ -1,0 +1,15 @@
+"""
+# Advanced Driver Focus Queries
+# These queries focus on complex performance comparisons and specific conditions
+
+1. How does Lewis Hamilton compare to Charles Leclerc in terms of wins, podiums, and points over the last 5 seasons?
+2. What is Fernando Alonso's performance (wins, fastest laps, podiums) on Circuit Silverstone over the past seasons?
+3. How does Lando Norris perform in wet vs. dry conditions (wins, DNFs, lap times)?
+4. How does George Russell compare to his teammate in points, podiums, and wins for the last 3 seasons?
+5. How has Oscar Piastri performed in races with safety car interventions (positions gained/lost)?
+6. How does Max Verstappen compare to Fernando Alonso in terms of wins, podiums, and points over the last 5 seasons?
+7. What is Lando Norris's performance (wins, fastest laps, podiums) on Circuit Monaco over the past seasons?
+8. How does Valtteri Bottas perform in wet vs. dry conditions (wins, DNFs, lap times)?
+9. How does Sergio Pérez compare to his teammate in points, podiums, and wins for the last 3 seasons?
+10. How has Carlos Sainz Jr. performed in races with safety car interventions (positions gained/lost)?
+""" 

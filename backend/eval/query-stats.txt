@@ -1,0 +1,13 @@
+"""
+# Basic Statistical Queries
+# These queries focus on straightforward statistical information
+
+- Who won the most races in 2023?
+- What is the fastest lap time recorded in 2023?
+- Which team has the most podium finishes this season?
+- How many races has Verstappen won in 2023?
+- What is the average lap time for Hamilton in 2023?
+- Which driver has the highest pole position percentage in 2023?
+- How many races were won by Ferrari in 2022?
+- Who leads the driver standings in 2023?
+""" 
