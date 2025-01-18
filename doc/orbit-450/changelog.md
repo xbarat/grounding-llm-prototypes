@@ -1,5 +1,24 @@
 # Production Deployment Changelog
 
+## [1.0.1] - 2024-01-18
+
+### Fixed
+- Resolved DataFrame handling issues in data analysis pipeline:
+  - Fixed unhashable type error when processing constructor data
+  - Improved data cleaning for duplicate entries
+  - Enhanced handling of mixed data types in ConstructorTable column
+  - Added robust validation for constructor data format
+- Added comprehensive logging for better debugging
+- Improved error handling in data processing pipeline
+
+### Enhanced
+- Added new data validation and normalization functions:
+  - `clean_dataframe`: Safely handles duplicate removal and data cleaning
+  - `validate_constructor_data`: Ensures consistent constructor data format
+  - `normalize_constructor_data`: Properly processes constructor information
+- Improved DataFrame processing with better type checking and error handling
+- Added detailed debug logging throughout the pipeline
+
 ## [1.0.0] - 2024-01-06
 
 ### Added

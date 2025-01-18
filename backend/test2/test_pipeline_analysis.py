@@ -183,16 +183,7 @@ if __name__ == "__main__":
     # Test queries focusing on different aspects
     test_queries = [
         # Historical analysis
-        "Show Ferrari's performance trend since 2015 with a line plot",
-        
-        # Multi-driver comparison
-        "Create a bar chart comparing pole positions between Max Verstappen and Lewis Hamilton in 2023",
-        
-        # Constructor analysis
-        "Visualize Red Bull's podium finishes from 2010 to 2023 as a time series",
-        
-        # Statistical analysis
-        "Calculate and plot the correlation between qualifying position and race finish position for top drivers in 2023"
+        "Show Ferrari's performance trend since 2018 with a line plot"
     ]
     
     # Run all tests
